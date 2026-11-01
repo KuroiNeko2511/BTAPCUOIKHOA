@@ -1,6 +1,7 @@
-import * as classMemberRepo from "../repository/classMember.repository.js";
-import * as userRepo from "../repository/user.repository.js";
-import pool from "../config/db.config.js";
+import * as classRepository from "../repository/class.repository.js";
+import * as classMemberRepository from "../repository/classMember.repository.js";
+import * as userRepository from "../repository/user.repository.js";
+import { NotFoundError } from "../core/error.response.js";
 
 import {
   BadRequestError,
@@ -17,6 +18,9 @@ const parseId = (value) => {
   }
 
   return id;
+const checkClassExists = async (classId) => {
+  const existingClass = await classRepository.findById(classId);
+  return existingClass;
 };
 
 const getClass = async (id) => {
@@ -29,17 +33,7 @@ const getClass = async (id) => {
     throw new NotFoundError("Class not found");
   }
 
-  return rows[0];
-};
-
-export const addMemberToClass = async (classId, memberId) => {
-  classId = parseId(classId);
-  memberId = parseId(memberId);
-
-  await getClass(classId);
-
-  const user = await userRepo.findById(memberId);
-
+  const user = await userRepository.findById(memberId);
   if (!user || !user.is_active) {
     throw new NotFoundError("User not found or is inactive");
   }
@@ -48,58 +42,60 @@ export const addMemberToClass = async (classId, memberId) => {
     throw new BadRequestError("Chỉ được thêm user có role MEMBER");
   }
 
-  const existing = await classMemberRepo.findMemberInClass(classId, memberId);
-
-  if (existing) {
-    throw new ConflictError("Member is already enrolled in this class");
-  }
-
-  try {
-    await classMemberRepo.addMember(classId, memberId);
-  } catch (error) {
-    if (error.code === "23505" && error.constraint === "uq_class_member") {
-      throw new ConflictError("Member is already enrolled in this class");
-    }
-
+  const alreadyMember = await classMemberRepository.findMemberInClass(
+    classId,
+    memberId,
+  );
+  if (alreadyMember) {
+    const error = new Error("Member is already enrolled in this class");
+    error.statusCode = 409; // Conflict
     throw error;
   }
 
-  return { classId, memberId };
+  await classMemberRepository.addMember(classId, memberId);
+  return { classId, memberId, message: "Member added successfully" };
 };
 
-export const getMembersOfClass = async (classId, user) => {
-  classId = parseId(classId);
+export const getMembersByClassId = async (classId, currentUser) => {
+  // 1. Kiểm tra lớp học có tồn tại hay không
+  const foundClass = await classRepository.findById(classId);
+  if (!foundClass) {
+    throw new NotFoundError("Lớp học không tồn tại!");
+  }
 
-  const classInfo = await getClass(classId);
-
-  const isAdmin = user.role === "ADMIN";
-  const isMentor = Number(classInfo.mentor_id) === Number(user.id);
-
-  if (!isAdmin && !isMentor) {
-    const membership = await classMemberRepo.findMemberInClass(
+  // 2. Kiểm tra quyền truy cập nếu không phải ADMIN
+  if (currentUser.role !== "ADMIN") {
+    const isMentor = foundClass.mentor_id === currentUser.id;
+    const isMember = await classMemberRepository.isUserInClass(
       classId,
-      user.id,
+      currentUser.id,
     );
 
-    if (!membership) {
-      throw new ForbiddenError("Bạn không có quyền xem thành viên lớp này");
+    if (!isMentor && !isMember) {
+      throw new ForbiddenError(
+        "Bạn không có quyền xem danh sách thành viên của lớp học này!",
+      );
     }
   }
 
-  return classMemberRepo.getMembersByClassId(classId);
+  // 3. Hợp lệ -> Trả về danh sách thành viên
+  return await classMemberRepository.getMembersByClassId(classId);
 };
 
 export const removeMemberFromClass = async (classId, memberId) => {
   classId = parseId(classId);
   memberId = parseId(memberId);
 
-  await getClass(classId);
-
-  const removed = await classMemberRepo.removeMember(classId, memberId);
-
-  if (!removed) {
-    throw new NotFoundError("Member not found in this class");
+  const existingEnrollment = await classMemberRepository.findMemberInClass(
+    classId,
+    memberId,
+  );
+  if (!existingEnrollment) {
+    const error = new Error("Member not found in this class");
+    error.statusCode = 404;
+    throw error;
   }
 
-  return { classId, memberId };
+  await classMemberRepository.removeMember(classId, memberId);
+  return { message: "Member removed from class successfully" };
 };

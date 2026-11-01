@@ -91,7 +91,6 @@ export const updateUserRules = [
     .withMessage("Email must be valid")
     .normalizeEmail(),
 ];
-;
 
 export const registerRules = [
   body("name")
