@@ -52,11 +52,16 @@ export const createUserRules = [
     .normalizeEmail(),
 
   body("password")
-    .trim()
-    .notEmpty()
-    .withMessage("Mật khẩu không được để trống")
-    .isLength({ min: 6 })
-    .withMessage("Mật khẩu phải có tối thiểu 6 ký tự"),
+    .isString()
+    .withMessage("Password phải là chuỗi")
+    .bail()
+    .isLength({ min: 6, max: 72 })
+    .withMessage("Password phải từ 6 đến 72 ký tự"),
+
+  body("role")
+    .optional()
+    .isIn(["ADMIN", "MEMBER"])
+    .withMessage("Role phải là ADMIN hoặc MEMBER"),
 ];
 
 export const updateUserRules = [
@@ -86,7 +91,6 @@ export const updateUserRules = [
     .withMessage("Email must be valid")
     .normalizeEmail(),
 ];
-3;
 
 export const registerRules = [
   body("name")

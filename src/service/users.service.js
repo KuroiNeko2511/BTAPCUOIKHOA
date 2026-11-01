@@ -16,7 +16,7 @@ const parseUserId = (userId) => {
     !Number.isInteger(parsedId) ||
     parsedId <= 0
   ) {
-    throw new BadRequestError("User ID must be a valid positive integer");
+    throw new BadRequestError("User ID must be a valid positive integer"); // Trả về 400
   }
 
   return parsedId;
@@ -103,7 +103,5 @@ export const deleteUser = async (userId) => {
     throw new NotFoundError("User not found");
   }
 
-  const deletedUser = await userRepository.deleteById(id);
-  const { password_hash, ...safeUser } = deletedUser;
-  return safeUser;
+  return await userRepository.deleteById(id);
 };
