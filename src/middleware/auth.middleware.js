@@ -1,31 +1,53 @@
-// src/middleware/auth.middleware.js
 import { UnauthorizedError } from "../core/error.response.js";
 import { verifyToken } from "../utils/jwt.helper.js";
+import * as userRepository from "../repository/user.repository.js";
 
-export const authenticateToken = (req, res, next) => {
-  // 1. Lấy giá trị từ Authorization Header
-  const authHeader = req.headers["authorization"];
-
-  // Header chuẩn có dạng: "Bearer eyJhbGciOi..."
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    throw new UnauthorizedError("Bạn chưa đăng nhập! Vui lòng cung cấp token hợp lệ.");
-  }
-
-  const token = authHeader.split(" ")[1];
-
+export const authenticateToken = async (req, res, next) => {
   try {
-    // 2. Xác thực và giải mã token
-    const decoded = verifyToken(token);
+    const authHeader = req.headers.authorization;
 
-    // 3. Gán payload đã decode vào request để các controller phía sau dùng
-    req.user = decoded;
+    const match =
+      typeof authHeader === "string"
+        ? /^Bearer\s+(\S+)$/i.exec(authHeader)
+        : null;
 
-    // 4. Cho phép đi tiếp vào Controller
-    next();
-  } catch (error) {
-    if (error.name === "TokenExpiredError") {
-      throw new UnauthorizedError("Token của bạn đã hết hạn, vui lòng đăng nhập lại!");
+    if (!match) {
+      throw new UnauthorizedError("Vui lòng cung cấp Bearer token");
     }
-    throw new UnauthorizedError("Token không hợp lệ hoặc đã bị chỉnh sửa trái phép!");
+
+    let decoded;
+
+    try {
+      decoded = verifyToken(match[1]);
+    } catch (error) {
+      if (error.name === "TokenExpiredError") {
+        throw new UnauthorizedError("Token đã hết hạn");
+      }
+
+      throw new UnauthorizedError("Token không hợp lệ");
+    }
+
+    const id = Number(decoded?.id);
+
+    if (!Number.isSafeInteger(id) || id <= 0) {
+      throw new UnauthorizedError("Token không có user ID hợp lệ");
+    }
+
+    const user = await userRepository.findById(id);
+
+    if (!user || !user.is_active) {
+      throw new UnauthorizedError("Tài khoản không còn hoạt động");
+    }
+
+    // Dùng role mới nhất trong database.
+    req.user = {
+      id: user.id,
+      email: user.email,
+      role: user.role,
+    };
+
+    return next();
+  } catch (error) {
+    return next(error);
   }
 };
