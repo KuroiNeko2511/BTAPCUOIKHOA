@@ -8,7 +8,7 @@ import {
 import { hashPassword, comparePassword } from "../utils/password.helper.js";
 import { generateToken, generateRefreshToken } from "../utils/jwt.helper.js";
 
-export const register = async ({ name, email, password, role }) => {
+export const register = async ({ name, email, password }) => {
   // 1. Kiểm tra xem email đã tồn tại hay chưa
   const existingUser = await userRepository.findByEmail(email);
   if (existingUser) {
@@ -23,7 +23,7 @@ export const register = async ({ name, email, password, role }) => {
     name,
     email,
     passwordHash: hashedPassword,
-    role: role || "MEMBER",
+    role: "MEMBER", // Mặc định role là MEMBER, không cho phép người dùng tự chọn role
   });
 
   // 4. Loại bỏ password_hash trước khi phản hồi về client
