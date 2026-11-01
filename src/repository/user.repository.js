@@ -10,7 +10,7 @@ export const findAll = async ({ sortBy = "id", order = "asc" }) => {
     ? order.toLowerCase()
     : "asc";
 
-  const [rows] = await pool.query(
+  const { rows } = await pool.query(
     `SELECT id, name, email, role, is_active, created_at, updated_at 
      FROM users 
      WHERE is_active = TRUE 
@@ -20,41 +20,46 @@ export const findAll = async ({ sortBy = "id", order = "asc" }) => {
 };
 
 export const findById = async (id) => {
-  const [rows] = await pool.execute(
+  const { rows } = await pool.query(
     `SELECT id, name, email, role, is_active, created_at, updated_at 
      FROM users 
-     WHERE id = ?`,
+     WHERE id = $1`,
     [id],
   );
   return rows[0] || null;
 };
 
 export const findByEmail = async (email) => {
-  const [rows] = await pool.execute(
-    "SELECT * FROM users WHERE email = ? AND is_active = TRUE",
+  const { rows } = await pool.query(
+    "SELECT * FROM users WHERE email = $1 AND is_active = TRUE",
     [email],
   );
   return rows[0] || null;
 };
 
-export const create = async ({ name, email, passwordHash, password, role }) => {
-
-  const finalPasswordHash = passwordHash || password;
-
-  const [result] = await pool.execute(
-    `INSERT INTO users (name, email, password_hash, role, is_active) 
-     VALUES (?, ?, ?, ?, TRUE)`,
-    [name, email, finalPasswordHash, role || "MEMBER"],
+export const create = async ({
+  name,
+  email,
+  passwordHash,
+  role = "MEMBER",
+}) => {
+  const { rows } = await pool.query(
+    `INSERT INTO users
+       (name, email, password_hash, role, is_active)
+     VALUES ($1, $2, $3, $4, TRUE)
+     RETURNING id`,
+    [name, email, passwordHash, role],
   );
-  return findById(result.insertId);
+
+  return findById(rows[0].id);
 };
 
 export const update = async (id, { name, email }) => {
-  await pool.execute(
+  await pool.query(
     `UPDATE users 
-     SET name = COALESCE(?, name), 
-         email = COALESCE(?, email) 
-     WHERE id = ?`,
+     SET name = COALESCE($1, name), 
+         email = COALESCE($2, email) 
+     WHERE id = $3`,
     [name ?? null, email ?? null, id],
   );
   return findById(id);
@@ -65,6 +70,6 @@ export const deleteById = async (id) => {
   if (!existingUser) return null;
 
   // Xóa mềm: đánh dấu is_active = FALSE
-  await pool.execute("UPDATE users SET is_active = FALSE WHERE id = ?", [id]);
-  return { ...existingUser, is_active: 0 };
+  await pool.query("UPDATE users SET is_active = FALSE WHERE id = $1", [id]);
+  return { ...existingUser, is_active: false };
 };
