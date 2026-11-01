@@ -1,7 +1,25 @@
-import ApiError from '../core/error.response.js';
-
+import ApiError from "../core/error.response.js";
+import { ConflictError } from "../core/error.response.js";
 // error handler middleware
 const errorHandler = (err, req, res, next) => {
+  console.error(`[ERROR] ${err.name}: ${err.message}`);
+
+  if (err.code === "23505" && err.table === "users") {
+    err = new ConflictError("Thông tin người dùng bị trùng");
+  }
+  if (err.code === "23505" && err.table === "classes") {
+    err = new ConflictError("Thông tin lớp học bị trùng");
+  }
+  // Nếu là lỗi do chúng ta tự throw (ApiError hoặc các class con)
+  if (err instanceof ApiError) {
+    const response = {
+      success: false,
+      message: err.message,
+    };
+    // Đính kèm danh sách lỗi chi tiết nếu có (từ validate middleware)
+    if (err.errors) response.errors = err.errors;
+    return res.status(err.statusCode).json(response);
+  }
     console.error(`[ERROR] ${err.name}: ${err.message}`);
 console.error(err.stack);
     // Nếu là lỗi do chúng ta tự throw (ApiError hoặc các class con)
@@ -15,11 +33,11 @@ console.error(err.stack);
         return res.status(err.statusCode).json(response);
     }
 
-    // Với mọi lỗi không mong muốn khác (lỗi hệ thống, DB, ...)
-    return res.status(500).json({
-        success: false,
-        message: 'Internal Server Error',
-    });
+  // Với mọi lỗi không mong muốn khác (lỗi hệ thống, DB, ...)
+  return res.status(500).json({
+    success: false,
+    message: "Internal Server Error",
+  });
 };
 
 export default errorHandler;

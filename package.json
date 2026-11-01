@@ -17,5 +17,8 @@
     "express-validator": "^7.3.2",
     "jsonwebtoken": "^9.0.3",
     "pg": "^8.23.1"
+  },
+  "allowScripts": {
+    "bcrypt@6.0.0": true
   }
 }

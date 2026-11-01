@@ -13,18 +13,13 @@ export const addMember = catchAsync(async (req, res) => {
   }
 
   const result = await classMemberService.addMemberToClass(classId, memberId);
-  return sendSuccess(res, 201, result, "Member added to class successfully");
+  return sendSuccess(res, 201, "Member added to class successfully", result);
 });
 
 export const getMembers = catchAsync(async (req, res) => {
-  const classId = req.params.id;
-  const members = await classMemberService.getMembersByClassId(classId, req.user);
-
-  res.status(200).json({
-    success: true,
-    message: "Lấy danh sách thành viên lớp học thành công!",
-    data: members,
-  });
+  const { id: classId } = req.params;
+  const members = await classMemberService.getMembersOfClass(classId, req.user);
+  return sendSuccess(res, 201, "Member added to class successfully", members);
 });
 
 export const removeMember = catchAsync(async (req, res) => {
@@ -33,5 +28,5 @@ export const removeMember = catchAsync(async (req, res) => {
     classId,
     memberId,
   );
-  return sendSuccess(res, 200, result, "Member removed successfully");
+  return sendSuccess(res, 201, "Member added to class successfully", result);
 });

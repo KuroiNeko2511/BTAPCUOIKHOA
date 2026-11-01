@@ -3,25 +3,43 @@ import * as classMemberRepository from "../repository/classMember.repository.js"
 import * as userRepository from "../repository/user.repository.js";
 import { NotFoundError } from "../core/error.response.js";
 
+import {
+  BadRequestError,
+  NotFoundError,
+  ConflictError,
+  ForbiddenError,
+} from "../core/error.response.js";
+
+const parseId = (value) => {
+  const id = Number(value);
+
+  if (!Number.isSafeInteger(id) || id <= 0) {
+    throw new BadRequestError("ID phải là số nguyên dương");
+  }
+
+  return id;
 const checkClassExists = async (classId) => {
   const existingClass = await classRepository.findById(classId);
   return existingClass;
 };
 
-export const addMemberToClass = async (classId, memberId) => {
-  // 1. Kiểm tra lớp học tồn tại
-  const existingClass = await checkClassExists(classId);
-  if (!existingClass) {
-    const error = new Error("Class not found");
-    error.statusCode = 404;
-    throw error;
+const getClass = async (id) => {
+  const { rows } = await pool.query(
+    "SELECT id, mentor_id FROM classes WHERE id = $1",
+    [id],
+  );
+
+  if (!rows[0]) {
+    throw new NotFoundError("Class not found");
   }
 
   const user = await userRepository.findById(memberId);
   if (!user || !user.is_active) {
-    const error = new Error("User not found or is inactive");
-    error.statusCode = 404;
-    throw error;
+    throw new NotFoundError("User not found or is inactive");
+  }
+
+  if (user.role !== "MEMBER") {
+    throw new BadRequestError("Chỉ được thêm user có role MEMBER");
   }
 
   const alreadyMember = await classMemberRepository.findMemberInClass(
@@ -65,12 +83,8 @@ export const getMembersByClassId = async (classId, currentUser) => {
 };
 
 export const removeMemberFromClass = async (classId, memberId) => {
-  const existingClass = await checkClassExists(classId);
-  if (!existingClass) {
-    const error = new Error("Class not found");
-    error.statusCode = 404;
-    throw error;
-  }
+  classId = parseId(classId);
+  memberId = parseId(memberId);
 
   const existingEnrollment = await classMemberRepository.findMemberInClass(
     classId,
