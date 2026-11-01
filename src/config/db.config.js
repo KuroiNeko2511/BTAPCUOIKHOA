@@ -1,27 +1,50 @@
+
 import pg from "pg";
-import { config } from "./env.config.js";
+import config from "./env.config.js";
 
 const { Pool } = pg;
 
+if (!config.db.url) {
+  throw new Error("DATABASE_URL chưa được cấu hình!");
+}
+
+// Kết nối đến Neon PostgreSQL
 const pool = new Pool({
-  host: config.db.host,
-  port: config.db.port,
-  user: config.db.user,
-  password: config.db.password,
-  database: config.db.database,
+  connectionString: config.db.url,
   max: 10,
+  connectionTimeoutMillis: 10000,
+  idleTimeoutMillis: 30000,
 });
 
+// Kiểm tra kết nối
 export const connectDB = async () => {
+  let connection;
+
   try {
-    const connection = await pool.connect();
-    console.log("Connected to PostgreSQL successfully!");
-    connection.release();
+    connection = await pool.connect();
+
+    const result = await connection.query(`
+      SELECT
+        current_database() AS database_name,
+        current_user AS username
+    `);
+
+    console.log("Connected to Neon PostgreSQL!");
+    console.log("Database:", result.rows[0].database_name);
+    console.log("User:", result.rows[0].username);
+
   } catch (error) {
-    console.error("Failed to connect to PostgreSQL:", error.message);
-    process.exit(1);
+    console.error("Database connection failed:", error.message);
+    process.exitCode = 1;
+    throw error;
+
+  } finally {
+    if (connection) connection.release();
   }
 };
 
-export const query = (text, params) => pool.query(text, params);
+// Giữ nguyên để các Repository sử dụng
+export const query = (text, params) =>
+  pool.query(text, params);
+
 export default pool;
