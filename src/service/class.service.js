@@ -10,7 +10,7 @@ export const createNewClass = async (classData) => {
   }
 
   // Kiểm tra mentorId 
-  const [users] = await pool.execute('SELECT id FROM users WHERE id = ?', [mentorId]);
+  const { rows: users } = await pool.query('SELECT id FROM users WHERE id = $1', [mentorId]);
   if (users.length === 0) {
     throw new BadRequestError('Mentor ID không tồn tại trong hệ thống!');
   }
