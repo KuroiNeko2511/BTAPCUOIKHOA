@@ -1,12 +1,12 @@
 import * as userRepository from "../repository/user.repository.js";
-
 import {
-  BadRequestError,
   NotFoundError,
   ConflictError,
+  BadRequestError,
 } from "../core/error.response.js";
-
 import { hashPassword } from "../utils/password.helper.js";
+
+// Helper kiểm tra và chuẩn hóa ID số nguyên dương
 const parseUserId = (userId) => {
   const parsedId = Number(userId);
 
@@ -22,10 +22,12 @@ const parseUserId = (userId) => {
   return parsedId;
 };
 
+// 1. Lấy danh sách users
 export const getAllUsers = async (query) => {
-  return await userRepository.findAll(query);
+  return await userRepository.findAll(query || {});
 };
 
+// 2. Lấy thông tin user theo ID
 export const getUserById = async (userId) => {
   const id = parseUserId(userId);
   const user = await userRepository.findById(id);
@@ -34,39 +36,36 @@ export const getUserById = async (userId) => {
     throw new NotFoundError("User not found");
   }
 
-  return user;
+  const { password_hash, ...safeUser } = user;
+  return safeUser;
 };
 
-export const createUser = async (userData) => {
-  const role = userData.role ?? "MEMBER";
-
-  if (!["ADMIN", "MEMBER"].includes(role)) {
-    throw new BadRequestError("Role phải là ADMIN hoặc MEMBER");
+// 3. Tạo user mới (Tự động kiểm tra trùng email và băm mật khẩu)
+export const createUser = async ({ name, email, password, role }) => {
+  if (!email || !password) {
+    throw new BadRequestError("Email and password are required");
   }
 
-  if (
-    typeof userData.password !== "string" ||
-    userData.password.trim().length < 6
-  ) {
-    throw new BadRequestError("Mật khẩu phải có tối thiểu 6 ký tự");
-  }
-
-  const existingUser = await userRepository.findByEmail(userData.email);
-
+  const existingUser = await userRepository.findByEmail(email);
   if (existingUser) {
     throw new ConflictError("Email already exists");
   }
 
-  const passwordHash = await hashPassword(userData.password);
+  // Băm mật khẩu bằng helper
+  const passwordHash = await hashPassword(password);
 
-  return userRepository.create({
-    name: userData.name,
-    email: userData.email,
+  const newUser = await userRepository.create({
+    name,
+    email,
     passwordHash,
-    role,
+    role: role || "MEMBER",
   });
+
+  const { password_hash, ...safeUser } = newUser;
+  return safeUser;
 };
 
+// 4. Cập nhật thông tin user
 export const updateUser = async (userId, updateData) => {
   const id = parseUserId(userId);
 
@@ -75,6 +74,7 @@ export const updateUser = async (userId, updateData) => {
     throw new NotFoundError("User not found");
   }
 
+  // Kiểm tra trùng email nếu có yêu cầu đổi email
   if (updateData.email && updateData.email !== existingUser.email) {
     const emailTaken = await userRepository.findByEmail(updateData.email);
     if (emailTaken && emailTaken.id !== id) {
@@ -82,9 +82,19 @@ export const updateUser = async (userId, updateData) => {
     }
   }
 
-  return await userRepository.update(id, updateData);
+  // Băm lại mật khẩu nếu request có truyền password mới
+  const dataToUpdate = { ...updateData };
+  if (dataToUpdate.password) {
+    dataToUpdate.passwordHash = await hashPassword(dataToUpdate.password);
+    delete dataToUpdate.password;
+  }
+
+  const updatedUser = await userRepository.update(id, dataToUpdate);
+  const { password_hash, ...safeUser } = updatedUser;
+  return safeUser;
 };
 
+// 5. Xóa mềm user
 export const deleteUser = async (userId) => {
   const id = parseUserId(userId);
 
