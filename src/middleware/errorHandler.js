@@ -3,7 +3,7 @@ import ApiError from '../core/error.response.js';
 // error handler middleware
 const errorHandler = (err, req, res, next) => {
     console.error(`[ERROR] ${err.name}: ${err.message}`);
-
+console.error(err.stack);
     // Nếu là lỗi do chúng ta tự throw (ApiError hoặc các class con)
     if (err instanceof ApiError) {
         const response = {

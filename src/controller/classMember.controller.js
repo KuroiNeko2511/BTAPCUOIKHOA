@@ -17,9 +17,14 @@ export const addMember = catchAsync(async (req, res) => {
 });
 
 export const getMembers = catchAsync(async (req, res) => {
-  const { id: classId } = req.params;
-  const members = await classMemberService.getMembersOfClass(classId);
-  return sendSuccess(res, 200, members, "Get class members successfully");
+  const classId = req.params.id;
+  const members = await classMemberService.getMembersByClassId(classId, req.user);
+
+  res.status(200).json({
+    success: true,
+    message: "Lấy danh sách thành viên lớp học thành công!",
+    data: members,
+  });
 });
 
 export const removeMember = catchAsync(async (req, res) => {
