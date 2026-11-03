@@ -7,10 +7,10 @@ import { authenticateToken } from "../middleware/auth.middleware.js";
 const router = Router();
 
 // Public routes:
-router.post("/register", validate(registerRules), authController.register);
-router.post("/login", validate(loginRules), authController.login);
+router.post("/register", validate(registerRules), authController.register);//đã
+router.post("/login", validate(loginRules), authController.login);//đã
 
 // Protected route:
-router.get("/me", authenticateToken, authController.getMe);
+router.get("/me", authenticateToken, authController.getMe);//đã
 
 export default router;

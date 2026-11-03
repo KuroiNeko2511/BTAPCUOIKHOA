@@ -18,7 +18,7 @@ export const addMember = catchAsync(async (req, res) => {
 
 export const getMembers = catchAsync(async (req, res) => {
   const { id: classId } = req.params;
-  const members = await classMemberService.getMembersOfClass(classId, req.user);
+  const members = await classMemberService.getMembersByClass(classId, req.user);
   return sendSuccess(res, 201, "Member added to class successfully", members);
 });
 

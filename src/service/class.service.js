@@ -62,7 +62,26 @@ export const updateExistingClass = async (classId, updateData) => {
   if (!existingClass) {
     throw new NotFoundError("Lớp học không tồn tại!");
   }
-  return await classRepository.update(classId, updateData);
+
+  // 1. Kiểm tra ngày tháng logic
+  const newStartDate = new Date(updateData.startDate || updateData.start_date || existingClass.start_date);
+  const newEndDate = new Date(updateData.endDate || updateData.end_date || existingClass.end_date);
+
+  if (newStartDate && newEndDate && newEndDate < newStartDate) {
+    throw new BadRequestError("Ngày kết thúc (endDate) phải lớn hơn hoặc bằng ngày bắt đầu (startDate)!");
+  }
+
+  // 2. Kiểm tra mentor nếu có cập nhật mentorId
+  const mentorId = updateData.mentorId || updateData.mentor_id;
+  if (mentorId) {
+    const mentor = await userRepository.findById(mentorId);
+    if (!mentor || !mentor.is_active) {
+      throw new NotFoundError("Mentor được chỉ định không tồn tại hoặc đã bị vô hiệu hóa!");
+    }
+  }
+
+  const updatedClass = await classRepository.update(classId, updateData);
+  return updatedClass;
 };
 
 // Xóa lớp

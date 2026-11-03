@@ -60,31 +60,51 @@ export const findClassesForMember = async (memberId) => {
 };
 
 // 5. Cập nhật thông tin lớp học (Admin)
-export const update = async (
-  id,
-  { name, description, startDate, endDate, mentorId }
-) => {
+export const update = async (id, updateData) => {
+  const {
+    name,
+    description,
+    startDate,
+    start_date,
+    endDate,
+    end_date,
+    mentorId,
+    mentor_id,
+    status
+  } = updateData;
+
+  const finalStartDate = startDate !== undefined ? startDate : start_date;
+  const finalEndDate = endDate !== undefined ? endDate : end_date;
+  const finalMentorId = mentorId !== undefined ? mentorId : mentor_id;
+
   const query = `
     UPDATE classes 
     SET name = COALESCE($1, name),
         description = COALESCE($2, description),
         start_date = COALESCE($3, start_date),
         end_date = COALESCE($4, end_date),
-        mentor_id = COALESCE($5, mentor_id)
-    WHERE id = $6
+        mentor_id = COALESCE($5, mentor_id),
+        status = COALESCE($6, status),
+        updated_at = CURRENT_TIMESTAMP
+    WHERE id = $7
     RETURNING id, name, description, status, start_date, end_date, mentor_id, created_at, updated_at
   `;
+
   const { rows } = await pool.query(query, [
     name ?? null,
     description ?? null,
-    startDate ?? null,
-    endDate ?? null,
-    mentorId ?? null,
+    finalStartDate ?? null,
+    finalEndDate ?? null,
+    finalMentorId ?? null,
+    status ?? null,
     id,
   ]);
-  
+
   if (rows.length === 0) return null;
-  return await findById(id);
+
+  // Nếu muốn trả về kèm mentor_name (LEFT JOIN), dùng: return await findById(id);
+  // Nếu chỉ cần dữ liệu class vừa cập nhật:
+  return rows[0];
 };
 
 // 6. Xóa lớp học (Admin)

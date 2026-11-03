@@ -3,12 +3,6 @@ import * as classMemberRepository from "../repository/classMember.repository.js"
 import * as userRepository from "../repository/user.repository.js";
 import { NotFoundError } from "../core/error.response.js";
 
-import {
-  BadRequestError,
-  NotFoundError,
-  ConflictError,
-  ForbiddenError,
-} from "../core/error.response.js";
 
 const parseId = (value) => {
   const id = Number(value);
@@ -18,6 +12,7 @@ const parseId = (value) => {
   }
 
   return id;
+}
 const checkClassExists = async (classId) => {
   const existingClass = await classRepository.findById(classId);
   return existingClass;
@@ -56,7 +51,37 @@ const getClass = async (id) => {
   return { classId, memberId, message: "Member added successfully" };
 };
 
-export const getMembersByClassId = async (classId, currentUser) => {
+export const addMemberToClass = async (classId, memberId) => {
+  // 1. Kiểm tra lớp học tồn tại
+  const existingClass = await checkClassExists(classId);
+  if (!existingClass) {
+    const error = new Error("Class not found");
+    error.statusCode = 404;
+    throw error;
+  }
+
+  const user = await userRepository.findById(memberId);
+  if (!user || !user.is_active) {
+    const error = new Error("User not found or is inactive");
+    error.statusCode = 404;
+    throw error;
+  }
+
+  const alreadyMember = await classMemberRepository.findMemberInClass(
+    classId,
+    memberId,
+  );
+  if (alreadyMember) {
+    const error = new Error("Member is already enrolled in this class");
+    error.statusCode = 409; // Conflict
+    throw error;
+  }
+
+  await classMemberRepository.addMember(classId, memberId);
+  return { classId, memberId, message: "Member added successfully" };
+};
+
+export const getMembersByClass = async (classId, currentUser) => {
   // 1. Kiểm tra lớp học có tồn tại hay không
   const foundClass = await classRepository.findById(classId);
   if (!foundClass) {
