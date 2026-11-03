@@ -37,7 +37,7 @@ export const findByEmail = async (email) => {
   const query = `
     SELECT * 
     FROM users 
-    WHERE email = $1 AND is_active = TRUE
+    WHERE email = $1 AND is_active = true
   `;
   const { rows } = await pool.query(query, [email]);
   return rows[0] || null;
@@ -61,16 +61,28 @@ export const create = async ({ name, email, passwordHash, password, role }) => {
   return rows[0];
 };
 
-// 5. Cập nhật thông tin user
-export const update = async (id, { name, email }) => {
+export const update = async (id, { name, email, passwordHash, role, is_active }) => {
   const query = `
     UPDATE users 
     SET name = COALESCE($1, name), 
-        email = COALESCE($2, email) 
-    WHERE id = $3 
+        email = COALESCE($2, email),
+        password_hash = COALESCE($3, password_hash),
+        role = COALESCE($4, role),
+        is_active = COALESCE($5, is_active),
+        updated_at = CURRENT_TIMESTAMP
+    WHERE id = $6 
     RETURNING id, name, email, role, is_active, created_at, updated_at
   `;
-  const { rows } = await pool.query(query, [name ?? null, email ?? null, id]);
+
+  const { rows } = await pool.query(query, [
+    name ?? null,
+    email ?? null,
+    passwordHash ?? null,
+    role ?? null,
+    is_active ?? null,
+    id
+  ]);
+
   return rows[0] || null;
 };
 
