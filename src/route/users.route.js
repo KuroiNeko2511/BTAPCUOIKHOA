@@ -15,14 +15,14 @@ const router = Router();
 
 router.use(authenticateToken, authorizeAdmin);
 
-router.get("/", userController.getAllUsers);
-router.get("/:id", validate(userIdParamRules), userController.getUserById);
-router.post("/", validate(createUserRules), userController.createUser);
+router.get("/", userController.getAllUsers);//đã
+router.get("/:id", validate(userIdParamRules), userController.getUserById);//đã
+router.post("/", validate(createUserRules), userController.createUser);//đã
 router.patch(
   "/:id",
   validate([...userIdParamRules, ...updateUserRules]),
   userController.updateUser,
-);
-router.delete("/:id", validate(userIdParamRules), userController.deleteUser);
+);//đã
+router.delete("/:id", validate(userIdParamRules), userController.deleteUser);//đã
 
 export default router;

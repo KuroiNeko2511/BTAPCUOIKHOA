@@ -8,20 +8,20 @@ import { requireClassMentor } from"../middleware/classMentor.middleware.js";
 
 const router = Router();
 
-router.get("/",  authenticateToken, classController.getClasses);
-router.post("/",  authenticateToken, authorizeAdmin, classController.createClass);
-router.get("/:id",  authenticateToken, classController.getClassById);
+router.get("/",  authenticateToken, classController.getClasses);//đã test
+router.post("/",  authenticateToken, authorizeAdmin, classController.createClass);//đã
+router.get("/:id",  authenticateToken, classController.getClassById);//đã
 router.patch("/:id",  authenticateToken, authorizeAdmin, classController.updateClass);
-router.delete("/:id",  authenticateToken, authorizeAdmin, classController.deleteClass);
+router.delete("/:id",  authenticateToken, authorizeAdmin, classController.deleteClass);//đã
 
 
-router.get("/:id/members",  authenticateToken, classMemberController.getMembers);
-router.post("/:id/members",  authenticateToken, authorizeAdmin, classMemberController.addMember);
-router.delete("/:id/members/:memberId",  authenticateToken, authorizeAdmin, classMemberController.removeMember);
+router.get("/:id/members",  authenticateToken, classMemberController.getMembers);//đã
+router.post("/:id/members",  authenticateToken, authorizeAdmin, classMemberController.addMember);//đã
+router.delete("/:id/members/:memberId",  authenticateToken, authorizeAdmin, classMemberController.removeMember);//đã
 
 // lessons qua class
 router.post("/:id/lessons",  authenticateToken, requireClassMentor, lessonController.createLesson);
-router.get("/:id/lessons",  authenticateToken, lessonController.getLessonsByClass,);
-router.get("/:id/progress",  authenticateToken, lessonController.getClassProgress,);
+router.get("/:id/lessons",  authenticateToken, lessonController.getLessonsByClass);
+router.get("/:id/progress",  authenticateToken, lessonController.getClassProgress);
 
 export default router;

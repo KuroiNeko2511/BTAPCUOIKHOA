@@ -74,22 +74,28 @@ export const updateUser = async (userId, updateData) => {
     throw new NotFoundError("User not found");
   }
 
-  // Kiểm tra trùng email nếu có yêu cầu đổi email
-  if (updateData.email && updateData.email !== existingUser.email) {
-    const emailTaken = await userRepository.findByEmail(updateData.email);
-    if (emailTaken && emailTaken.id !== id) {
+  // Kiểm tra trùng email nếu có đổi email
+  if (updateData.email && updateData.email.trim().toLowerCase() !== existingUser.email.toLowerCase()) {
+    const emailTaken = await userRepository.findByEmail(updateData.email.trim());
+    if (emailTaken) {
       throw new ConflictError("Email already exists");
     }
   }
 
-  // Băm lại mật khẩu nếu request có truyền password mới
   const dataToUpdate = { ...updateData };
+
+  // Băm mật khẩu nếu có gửi password mới
   if (dataToUpdate.password) {
     dataToUpdate.passwordHash = await hashPassword(dataToUpdate.password);
     delete dataToUpdate.password;
   }
 
+  // dataToUpdate đã có sẵn is_active (nếu client gửi lên)
   const updatedUser = await userRepository.update(id, dataToUpdate);
+  if (!updatedUser) {
+    throw new NotFoundError("User not found or update failed");
+  }
+
   const { password_hash, ...safeUser } = updatedUser;
   return safeUser;
 };
