@@ -1,63 +1,126 @@
 import * as lessonRepository from "../repository/lesson.repository.js";
-import * as classRepository from "../repository/class.repository.js"; 
-import { NotFoundError, ForbiddenError, ConflictError } from "../core/error.response.js";
+import * as classRepository from "../repository/class.repository.js";
 
-// Helper kiểm tra member có trong lớp hoặc là mentor không
-const ensureMemberInClass = async (classId, userId, role) => {
-  // 1. Admin luôn có toàn quyền truy cập
-  if (role === "ADMIN") return;
+import {
+  NotFoundError,
+  ForbiddenError,
+  ConflictError,
+  BadRequestError,
+} from "../core/error.response.js";
+//ensureClassAccess: kiểm tra quyền truy cập của người dùng vào lớp học
+const ensureClassAccess = async (classId, user, permission = "VIEW") => {
+  if (user.role === "ADMIN") return;
 
-  // 2. Tái sử dụng hàm repository kiểm tra đồng thời cả Member lẫn Mentor
-  const hasAccess = await classRepository.isMemberOrMentorOfClass(classId, userId);
+  let hasAccess = false;
+
+  if (permission === "MANAGE") {
+    hasAccess = await classRepository.isMentorOfClass(classId, user.id);
+  } else if (permission === "VIEW") {
+    hasAccess = await classRepository.isMemberOrMentorOfClass(classId, user.id);
+  } else {
+    throw new Error("Invalid permission");
+  }
+
   if (!hasAccess) {
-    throw new ForbiddenError("Bạn không có quyền truy cập lớp học này!");
+    throw new ForbiddenError(
+      "You do not have permission to access this class!",
+    );
   }
 };
+//getLessonWithAccess: kiểm tra quyền truy cập của người dùng vào bài học
+const getLessonWithAccess = async (lessonId, user, permission = "VIEW") => {
+  const lesson = await lessonRepository.findLessonById(lessonId);
 
-export const createLesson = async ({ classId, title, content, orderIndex, userId }) => {
-  return await lessonRepository.createLesson({ classId, title, content, orderIndex, createdBy: userId });
+  if (!lesson) {
+    throw new NotFoundError("Lesson not found!");
+  }
+
+  await ensureClassAccess(lesson.class_id, user, permission);
+
+  return lesson;
+};
+//pickLessonUpdates: lọc dữ liệu cập nhật bài học
+const pickLessonUpdates = (data) => {
+  const allowedFields = ["title", "content", "orderIndex"];
+
+  const updateData = {};
+
+  for (const field of allowedFields) {
+    if (data[field] !== undefined) {
+      updateData[field] = data[field];
+    }
+  }
+
+  return updateData;
+};
+
+export const createLesson = async (data, user) => {
+  const { classId, title, content, orderIndex } = data;
+
+  await ensureClassAccess(classId, user, "MANAGE");
+
+  return lessonRepository.createLesson({
+    classId,
+    title,
+    content,
+    orderIndex,
+    createdBy: user.id,
+  });
 };
 
 export const getLessonsByClass = async (classId, user) => {
-  await ensureMemberInClass(classId, user.id, user.role);
-  return await lessonRepository.findLessonsByClassId(classId);
+  await ensureClassAccess(classId, user, "VIEW");
+
+  return lessonRepository.findLessonsByClassId(classId);
 };
 
 export const getLessonById = async (lessonId, user) => {
-  const lesson = await lessonRepository.findLessonById(lessonId);
-  if (!lesson) throw new NotFoundError("Bài học không tồn tại!");
-  await ensureMemberInClass(lesson.class_id, user.id, user.role);
-  return lesson;
+  return getLessonWithAccess(lessonId, user, "VIEW");
 };
 
-export const updateLesson = async (id, data) => {
-  return await lessonRepository.updateLesson(id, data);
-};
+export const updateLesson = async (lessonId, data, user) => {
+  await getLessonWithAccess(lessonId, user, "MANAGE");
 
-export const deleteLesson = async (id) => {
-  return await lessonRepository.deleteLesson(id);
-};
+  const updateData = pickLessonUpdates(data);
 
-export const completeLesson = async (lessonId, memberId, role) => {
-  const lesson = await lessonRepository.findLessonById(lessonId);
-  if (!lesson) throw new NotFoundError("Bài học không tồn tại!");
-  await ensureMemberInClass(lesson.class_id, memberId, role);
-
-  const existing = await lessonRepository.findProgress(lessonId, memberId);
-  if (existing) {
-    throw new ConflictError("Bài học này đã được đánh dấu hoàn thành từ trước!");
+  if (Object.keys(updateData).length === 0) {
+    throw new BadRequestError("No valid fields to update!");
   }
 
-  await lessonRepository.markCompleted(lessonId, memberId);
-  return { message: "Hoàn thành bài học thành công!" };
+  return lessonRepository.updateLesson(lessonId, updateData);
+};
+
+export const deleteLesson = async (lessonId, user) => {
+  await getLessonWithAccess(lessonId, user, "MANAGE");
+
+  return lessonRepository.deleteLesson(lessonId);
+};
+
+export const completeLesson = async (lessonId, user) => {
+  await getLessonWithAccess(lessonId, user, "VIEW");
+
+  const existing = await lessonRepository.findProgress(lessonId, user.id);
+
+  if (existing) {
+    throw new ConflictError("Lesson has already been marked as completed!");
+  }
+
+  await lessonRepository.markCompleted(lessonId, user.id);
+
+  return {
+    message: "Lesson completed successfully!",
+  };
 };
 
 export const getClassProgress = async (classId, user) => {
-  await ensureMemberInClass(classId, user.id, user.role);
+  await ensureClassAccess(classId, user, "VIEW");
+
   const stats = await lessonRepository.getProgressStats(classId, user.id);
-  const progress = stats.totalLessons > 0 
-    ? Math.round((stats.completedLessons / stats.totalLessons) * 100) 
-    : 0;
+
+  const progress =
+    stats.totalLessons > 0
+      ? Math.round((stats.completedLessons / stats.totalLessons) * 100)
+      : 0;
 
   return {
     totalLessons: stats.totalLessons,

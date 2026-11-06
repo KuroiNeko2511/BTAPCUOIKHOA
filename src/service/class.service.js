@@ -1,56 +1,79 @@
 import * as classRepository from "../repository/class.repository.js";
 import * as userRepository from "../repository/user.repository.js";
-import { NotFoundError, ForbiddenError } from "../core/error.response.js";
+import {
+  BadRequestError,
+  ConflictError,
+  ForbiddenError,
+  NotFoundError,
+} from "../core/error.response.js";
+import { ROLES } from "../core/constants.js";
+import { parsePositiveInt } from "../utils/validators.js";
 
-export const createNewClass = async (classData) => {
-  const { name, mentorId } = classData;
+// hàm này kiệm để kiểm tra tính hợp lệ của ngày tháng, nếu không hợp lệ sẽ ném ra lỗi BadRequestError
+const parseDate = (value, fieldName) => {
+  const date = new Date(value);
 
-  if (!name || !mentorId) {
-    throw new BadRequestError("Tên lớp và Mentor ID là bắt buộc!");
+  if (Number.isNaN(date.getTime())) {
+    throw new BadRequestError(`Invalid ${fieldName}.`);
   }
 
-  // 1. Kiểm tra trùng tên lớp học
-  const existingClass = await classRepository.findByName(name);
-  if (existingClass) {
-    throw new ConflictError("Tên lớp học đã tồn tại trong hệ thống!");
+  return date;
+};
+// Tôi tách findClassOrThrow để tái sử dụng khỏi phỉ code nhiều lần
+const findClassOrThrow = async (classId) => {
+  const foundClass = await classRepository.findById(classId);
+
+  if (!foundClass) {
+    throw new NotFoundError("Class not found.");
   }
 
-  // 2. Kiểm tra Mentor có tồn tại không
-  const mentor = await userRepository.findById(mentorId);
-  if (!mentor) {
-    throw new BadRequestError("Mentor ID không tồn tại trong hệ thống!");
-  }
-
-  // 3. Tiến hành tạo lớp mới
-  const newClassId = await classRepository.insertClass(classData);
-  return { id: newClassId, ...classData };
+  return foundClass;
 };
 
-export const getClassesByRole = async (user) => {
-  if (user.role === "ADMIN") {
-    return await classRepository.findAllClassesForAdmin();
-  } else {
-    return await classRepository.findClassesForMember(user.id);
+export const createNewClass = async (classData) => {
+  const { name, mentor_id, start_date, end_date } = classData;
+
+  if (!name?.trim() || mentor_id === undefined) {
+    throw new BadRequestError("Class name and mentor ID are required.");
   }
+
+  const mentorId = parsePositiveInt(mentor_id, "mentor ID");
+  assertValidDateRange(start_date, end_date);
+
+  const existingClass = await classRepository.findByName(name);
+  if (existingClass) {
+    throw new ConflictError("A class with this name already exists.");
+  }
+
+  await assertActiveMentor(mentorId);
+
+  const data = { ...classData, mentor_id: mentorId };
+  const newClassId = await classRepository.insertClass(data);
+
+  return { ...data, id: newClassId };
+};
+
+// getClassesByRole: Lấy danh sách lớp học dựa trên vai trò của người dùng
+export const getClassesByRole = async (user) => {
+  if (user.role === ROLES.ADMIN) {
+    return classRepository.findAllClassesForAdmin();
+  }
+
+  return classRepository.findClassesForMember(user.id);
 };
 
 // Xem chi tiết lớp và kiểm tra quyền
 export const getClassDetail = async (classId, user) => {
-  const foundClass = await classRepository.findById(classId);
-  if (!foundClass) {
-    throw new NotFoundError("Lớp học không tồn tại!");
-  }
+  const foundClass = await findClassOrThrow(classId);
 
-  // Nếu là Admin thì có quyền xem
-  if (user.role === "ADMIN") return foundClass;
+  if (user.role === ROLES.ADMIN) return foundClass;
 
-  // Nếu là Member, phải là Mentor của lớp hoặc đã tham gia vào lớp
   const isEnrolledOrMentor = await classRepository.isMemberOrMentorOfClass(
     classId,
-    user.id,
+    user.id
   );
   if (!isEnrolledOrMentor) {
-    throw new ForbiddenError("Bạn không có quyền truy cập lớp học này!");
+    throw new ForbiddenError("Access denied. You do not have access to this class.");
   }
 
   return foundClass;
@@ -58,37 +81,35 @@ export const getClassDetail = async (classId, user) => {
 
 // Cập nhật lớp
 export const updateExistingClass = async (classId, updateData) => {
-  const existingClass = await classRepository.findById(classId);
-  if (!existingClass) {
-    throw new NotFoundError("Lớp học không tồn tại!");
+  if (Object.keys(updateData).length === 0) {
+    throw new BadRequestError("No fields to update.");
   }
 
-  // 1. Kiểm tra ngày tháng logic
-  const newStartDate = new Date(updateData.startDate || updateData.start_date || existingClass.start_date);
-  const newEndDate = new Date(updateData.endDate || updateData.end_date || existingClass.end_date);
+  const existingClass = await findClassOrThrow(classId);
 
-  if (newStartDate && newEndDate && newEndDate < newStartDate) {
-    throw new BadRequestError("Ngày kết thúc (endDate) phải lớn hơn hoặc bằng ngày bắt đầu (startDate)!");
-  }
+  assertValidDateRange(
+    updateData.start_date ?? existingClass.start_date,
+    updateData.end_date ?? existingClass.end_date
+  );
 
-  // 2. Kiểm tra mentor nếu có cập nhật mentorId
-  const mentorId = updateData.mentorId || updateData.mentor_id;
-  if (mentorId) {
-    const mentor = await userRepository.findById(mentorId);
-    if (!mentor || !mentor.is_active) {
-      throw new NotFoundError("Mentor được chỉ định không tồn tại hoặc đã bị vô hiệu hóa!");
+  if (updateData.name !== undefined && updateData.name !== existingClass.name) {
+    const duplicate = await classRepository.findByName(updateData.name);
+    if (duplicate && Number(duplicate.id) !== Number(classId)) {
+      throw new ConflictError("A class with this name already exists.");
     }
   }
 
-  const updatedClass = await classRepository.update(classId, updateData);
-  return updatedClass;
+  const data = { ...updateData };
+  if (data.mentor_id !== undefined) {
+    data.mentor_id = parsePositiveInt(data.mentor_id, "mentor ID");
+    await assertActiveMentor(data.mentor_id);
+  }
+
+  return classRepository.update(classId, data);
 };
 
 // Xóa lớp
 export const deleteClassById = async (classId) => {
-  const existingClass = await classRepository.findById(classId);
-  if (!existingClass) {
-    throw new NotFoundError("Lớp học không tồn tại!");
-  }
-  return await classRepository.deleteById(classId);
+  await findClassOrThrow(classId);
+  return classRepository.deleteById(classId);
 };

@@ -2,44 +2,52 @@ import { UnauthorizedError } from "../core/error.response.js";
 import { verifyToken } from "../utils/jwt.helper.js";
 import * as userRepository from "../repository/user.repository.js";
 
-export const authenticateToken = async (req, res, next) => {
+const BEARER_REGEX = /^Bearer\s+(\S+)$/i;
+const INVALID_TOKEN_ERRORS = new Set(["JsonWebTokenError", "NotBeforeError"]);
+const extractBearerToken = (authHeader) => {
+  if (typeof authHeader !== "string") return null;
+
+  const match = BEARER_REGEX.exec(authHeader);
+  return match ? match[1] : null;
+};
+
+export const authenticateToken = async (req, _res, next) => {
   try {
-    const authHeader = req.headers.authorization;
+    const token = extractBearerToken(req.headers.authorization);
 
-    const match =
-      typeof authHeader === "string"
-        ? /^Bearer\s+(\S+)$/i.exec(authHeader)
-        : null;
-
-    if (!match) {
-      throw new UnauthorizedError("Vui lòng cung cấp Bearer token");
+    if (!token) {
+      throw new UnauthorizedError(
+        "Authentication required. Please provide a valid Bearer token."
+      );
     }
 
     let decoded;
 
     try {
-      decoded = verifyToken(match[1]);
+      decoded = verifyToken(token);
     } catch (error) {
       if (error.name === "TokenExpiredError") {
-        throw new UnauthorizedError("Token đã hết hạn");
+        throw new UnauthorizedError("Access token has expired.");
       }
 
-      throw new UnauthorizedError("Token không hợp lệ");
+      if (INVALID_TOKEN_ERRORS.has(error.name)) {
+        throw new UnauthorizedError("Invalid access token.");
+      }
+      throw error;
     }
 
     const id = Number(decoded?.id);
 
     if (!Number.isSafeInteger(id) || id <= 0) {
-      throw new UnauthorizedError("Token không có user ID hợp lệ");
+      throw new UnauthorizedError("Access token does not contain a valid user ID.");
     }
 
     const user = await userRepository.findById(id);
 
     if (!user || !user.is_active) {
-      throw new UnauthorizedError("Tài khoản không còn hoạt động");
+      throw new UnauthorizedError("User account is inactive or no longer exists.");
     }
 
-    // Dùng role mới nhất trong database.
     req.user = {
       id: user.id,
       email: user.email,

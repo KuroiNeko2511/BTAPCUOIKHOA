@@ -4,11 +4,14 @@ import { authenticateToken } from "../middleware/auth.middleware.js";
 import { requireClassMentor } from "../middleware/classMentor.middleware.js";
 
 const router = express.Router();
+router.use(authenticateToken);
 
-// Các API thao tác trên lesson
-router.get("/:id",  authenticateToken, lessonController.getLessonById);
-router.patch("/:id",  authenticateToken, requireClassMentor, lessonController.updateLesson);
-router.delete("/:id",  authenticateToken, requireClassMentor, lessonController.deleteLesson);
-router.post("/:id/complete",  authenticateToken, lessonController.completeLesson);
+router.post("/:id/lessons", authenticateToken, requireClassMentor, lessonController.createLesson);
+router.get("/:id", lessonController.getLessonById);
+router.get("/:id/lessons", authenticateToken, lessonController.getLessonsByClass);
+router.patch("/:id", requireClassMentor, lessonController.updateLesson);
+router.delete("/:id", requireClassMentor, lessonController.deleteLesson);
+router.post("/:id/complete", lessonController.completeLesson);
+router.get("/:id/progress", authenticateToken, lessonController.getClassProgress);
 
 export default router;

@@ -1,4 +1,3 @@
-// src/route/auth.route.js
 import { Router } from "express";
 import * as authController from "../controller/auth.controller.js";
 import { validate, registerRules, loginRules } from "../middleware/validate.js";

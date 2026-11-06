@@ -1,36 +1,46 @@
 import * as classService from '../service/class.service.js';
 import catchAsync from '../utils/catchAsync.js';
 import { sendSuccess } from '../utils/responseHelper.js';
+import { parsePositiveInt } from "../utils/validators.js";
 
-// 1. Tạo lớp học mới (Admin)
+const pickClassFields = (body = {}) => {
+  const fields = {
+    name: body.name,
+    description: body.description,
+    mentor_id: body.mentor_id ?? body.mentorId,
+    start_date: body.start_date ?? body.startDate,
+    end_date: body.end_date ?? body.endDate,
+  };
+
+  return Object.fromEntries(
+    Object.entries(fields).filter(([, value]) => value !== undefined)
+  );
+};
+
 export const createClass = catchAsync(async (req, res) => {
   const result = await classService.createNewClass(req.body);
-  return sendSuccess(res, 201, 'Tạo lớp học thành công!', result);
+  return sendSuccess(res, 201, 'Class created successfully!', result);
 });
 
-// 2. Lấy danh sách lớp học (Admin thấy tất cả, Member thấy lớp mình tham gia)
 export const getClasses = catchAsync(async (req, res) => {
   const result = await classService.getClassesByRole(req.user);
-  return sendSuccess(res, 200, 'Lấy danh sách lớp học thành công!', result);
+  return sendSuccess(res, 200, 'Classes retrieved successfully!', result);
 });
 
-// 3. Xem chi tiết một lớp học
 export const getClassById = catchAsync(async (req, res) => {
   const { id } = req.params;
   const result = await classService.getClassDetail(id, req.user);
-  return sendSuccess(res, 200, 'Lấy thông tin chi tiết lớp học thành công!', result);
+  return sendSuccess(res, 200, 'Class detail retrieved successfully!', result);
 });
 
-// 4. Cập nhật lớp học (Admin)
 export const updateClass = catchAsync(async (req, res) => {
   const { id } = req.params;
   const result = await classService.updateExistingClass(id, req.body);
-  return sendSuccess(res, 200, 'Cập nhật lớp học thành công!', result);
+  return sendSuccess(res, 200, 'Class updated successfully!', result);
 });
 
-// 5. Xóa lớp học (Admin)
 export const deleteClass = catchAsync(async (req, res) => {
   const { id } = req.params;
   await classService.deleteClassById(id);
-  return sendSuccess(res, 200, 'Xóa lớp học thành công!');
+  return sendSuccess(res, 200, 'Class deleted successfully!');
 });
