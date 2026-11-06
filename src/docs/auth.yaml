@@ -1,0 +1,64 @@
+/auth/register:
+  post:
+    tags: [Auth]
+    summary: Đăng ký tài khoản mới
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [name, email, password]
+            properties:
+              name:
+                type: string
+                example: Nguyen Van A
+              email:
+                type: string
+                example: vanA@example.com
+              password:
+                type: string
+                example: "123456"
+    responses:
+      "201":
+        description: Đăng ký thành công
+      "400":
+        description: Dữ liệu không hợp lệ
+      "409":
+        description: Email đã tồn tại
+
+/auth/login:
+  post:
+    tags: [Auth]
+    summary: Đăng nhập
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [email, password]
+            properties:
+              email:
+                type: string
+                example: vanA@example.com
+              password:
+                type: string
+                example: "123456"
+    responses:
+      "200":
+        description: Đăng nhập thành công, trả về token
+      "401":
+        description: Sai email hoặc mật khẩu
+
+/auth/me:
+  get:
+    tags: [Auth]
+    summary: Lấy thông tin người dùng hiện tại
+    security:
+      - bearerAuth: []
+    responses:
+      "200":
+        description: Thông tin user
+      "401":
+        description: Chưa xác thực

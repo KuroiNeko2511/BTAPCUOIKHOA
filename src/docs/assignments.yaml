@@ -1,0 +1,200 @@
+/classes/{classId}/assignments:
+  get:
+    tags: [Assignments]
+    summary: Lấy danh sách bài tập của lớp
+    security:
+      - bearerAuth: []
+    parameters:
+      - in: path
+        name: classId
+        required: true
+        schema:
+          type: integer
+    responses:
+      "200":
+        description: Danh sách bài tập
+
+  post:
+    tags: [Assignments]
+    summary: Tạo bài tập mới (Mentor)
+    security:
+      - bearerAuth: []
+    parameters:
+      - in: path
+        name: classId
+        required: true
+        schema:
+          type: integer
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [title]
+            properties:
+              title:
+                type: string
+              description:
+                type: string
+              maximumScore:
+                type: number
+              dueDate:
+                type: string
+                format: date-time
+    responses:
+      "201":
+        description: Tạo thành công
+
+/assignments/{id}:
+  get:
+    tags: [Assignments]
+    summary: Lấy chi tiết bài tập
+    security:
+      - bearerAuth: []
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: integer
+    responses:
+      "200":
+        description: Chi tiết bài tập
+      "404":
+        description: Không tìm thấy
+
+  patch:
+    tags: [Assignments]
+    summary: Cập nhật bài tập (Mentor)
+    security:
+      - bearerAuth: []
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: integer
+    requestBody:
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              title:
+                type: string
+              description:
+                type: string
+              maximumScore:
+                type: number
+              dueDate:
+                type: string
+                format: date-time
+              isClosed:
+                type: boolean
+    responses:
+      "200":
+        description: Cập nhật thành công
+
+  delete:
+    tags: [Assignments]
+    summary: Xoá bài tập (Mentor)
+    security:
+      - bearerAuth: []
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: integer
+    responses:
+      "200":
+        description: Xoá thành công
+
+/assignments/{assignmentId}/submissions:
+  post:
+    tags: [Assignments]
+    summary: Nộp bài tập (Member)
+    security:
+      - bearerAuth: []
+    parameters:
+      - in: path
+        name: assignmentId
+        required: true
+        schema:
+          type: integer
+    requestBody:
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              content:
+                type: string
+              repositoryUrl:
+                type: string
+                example: https://github.com/user/repo
+    responses:
+      "201":
+        description: Nộp bài thành công
+      "409":
+        description: Đã nộp bài rồi
+
+  get:
+    tags: [Assignments]
+    summary: Lấy danh sách bài nộp của bài tập
+    security:
+      - bearerAuth: []
+    parameters:
+      - in: path
+        name: assignmentId
+        required: true
+        schema:
+          type: integer
+    responses:
+      "200":
+        description: Danh sách bài nộp
+
+/submissions/{id}:
+  get:
+    tags: [Assignments]
+    summary: Lấy chi tiết bài nộp
+    security:
+      - bearerAuth: []
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: integer
+    responses:
+      "200":
+        description: Chi tiết bài nộp
+      "403":
+        description: Không có quyền xem bài nộp của người khác
+
+/submissions/{id}/review:
+  patch:
+    tags: [Assignments]
+    summary: Chấm điểm bài nộp (Mentor)
+    security:
+      - bearerAuth: []
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: integer
+    requestBody:
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              score:
+                type: number
+              feedback:
+                type: string
+    responses:
+      "200":
+        description: Chấm điểm thành công

@@ -1,0 +1,169 @@
+/classes:
+  get:
+    tags: [Classes]
+    summary: Lấy danh sách lớp học (theo role)
+    security:
+      - bearerAuth: []
+    responses:
+      "200":
+        description: Danh sách lớp học
+
+  post:
+    tags: [Classes]
+    summary: Tạo lớp học mới (Admin)
+    security:
+      - bearerAuth: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [name, mentor_id]
+            properties:
+              name:
+                type: string
+                example: Lớp NodeJS 01
+              description:
+                type: string
+              mentor_id:
+                type: integer
+                example: 2
+              start_date:
+                type: string
+                format: date
+              end_date:
+                type: string
+                format: date
+    responses:
+      "201":
+        description: Tạo lớp thành công
+
+/classes/{id}:
+  get:
+    tags: [Classes]
+    summary: Lấy chi tiết lớp học
+    security:
+      - bearerAuth: []
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: integer
+    responses:
+      "200":
+        description: Chi tiết lớp học
+      "404":
+        description: Không tìm thấy lớp
+
+  patch:
+    tags: [Classes]
+    summary: Cập nhật lớp học (Admin)
+    security:
+      - bearerAuth: []
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: integer
+    requestBody:
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              name:
+                type: string
+              description:
+                type: string
+              mentor_id:
+                type: integer
+              start_date:
+                type: string
+                format: date
+              end_date:
+                type: string
+                format: date
+    responses:
+      "200":
+        description: Cập nhật thành công
+
+  delete:
+    tags: [Classes]
+    summary: Xoá lớp học (Admin)
+    security:
+      - bearerAuth: []
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: integer
+    responses:
+      "200":
+        description: Xoá thành công
+
+/classes/{id}/members:
+  get:
+    tags: [Classes]
+    summary: Lấy danh sách thành viên lớp
+    security:
+      - bearerAuth: []
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: integer
+    responses:
+      "200":
+        description: Danh sách thành viên
+
+  post:
+    tags: [Classes]
+    summary: Thêm thành viên vào lớp (Admin)
+    security:
+      - bearerAuth: []
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: integer
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [memberId]
+            properties:
+              memberId:
+                type: integer
+    responses:
+      "201":
+        description: Thêm thành công
+
+/classes/{id}/members/{memberId}:
+  delete:
+    tags: [Classes]
+    summary: Xoá thành viên khỏi lớp (Admin)
+    security:
+      - bearerAuth: []
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: integer
+      - in: path
+        name: memberId
+        required: true
+        schema:
+          type: integer
+    responses:
+      "200":
+        description: Xoá thành công
+

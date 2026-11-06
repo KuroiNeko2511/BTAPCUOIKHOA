@@ -1,120 +1,101 @@
 import * as repo from "../repository/assignment.repository.js";
 import {
   BadRequestError,
-  UnauthorizedError,
   ForbiddenError,
   NotFoundError,
   ConflictError,
 } from "../core/error.response.js";
-
-const parseId = (value) => {
-  const id = Number(value);
-
-  if (!Number.isSafeInteger(id) || id <= 0) {
-    throw new BadRequestError("ID phải là số nguyên dương");
-  }
-
-  return id;
-};
-
-const getActor = async (tokenUser) => {
-  const user = await repo.findActiveUser(parseId(tokenUser.id));
-
-  if (!user) {
-    throw new UnauthorizedError("Tài khoản không còn hoạt động");
-  }
-
-  return user;
-};
+import { ROLES } from "../core/constants.js";
+import { parsePositiveInt } from "../utils/validators.js";
 
 const getClass = async (id) => {
-  const classInfo = await repo.findClass(parseId(id));
-
-  if (!classInfo) {
-    throw new NotFoundError("Không tìm thấy lớp học");
-  }
-
+  const classInfo = await repo.findClass(parsePositiveInt(id, "class ID"));
+  if (!classInfo) throw new NotFoundError("Class not found.");
   return classInfo;
 };
 
 const getAssignment = async (id) => {
-  const assignment = await repo.findAssignment(parseId(id));
-
-  if (!assignment) {
-    throw new NotFoundError("Không tìm thấy assignment");
-  }
-
+  const assignment = await repo.findAssignment(
+    parsePositiveInt(id, "assignment ID"),
+  );
+  if (!assignment) throw new NotFoundError("Assignment not found.");
   return assignment;
 };
 
 const getSubmission = async (id) => {
-  const submission = await repo.findSubmission(parseId(id));
-
-  if (!submission) {
-    throw new NotFoundError("Không tìm thấy bài nộp");
-  }
-
+  const submission = await repo.findSubmission(
+    parsePositiveInt(id, "submission ID"),
+  );
+  if (!submission) throw new NotFoundError("Submission not found.");
   return submission;
 };
-
+//hàm isMentor: Returns true if the user is the mentor of the class
 const isMentor = (classInfo, user) =>
   Number(classInfo.mentor_id) === Number(user.id);
-
+//hàm requireMentor: quy định chỉ mentor mới được làm
 const requireMentor = (classInfo, user) => {
   if (!isMentor(classInfo, user)) {
-    throw new ForbiddenError("Bạn không phải mentor của lớp này");
+    throw new ForbiddenError(
+      "Access denied. You are not the mentor of this class.",
+    );
   }
 };
-
 const requireMember = async (classId, user) => {
   const enrolled = await repo.isClassMember(classId, user.id);
 
-  if (user.role !== "MEMBER" || !enrolled) {
-    throw new ForbiddenError("Bạn không phải member của lớp này");
+  if (user.role !== ROLES.MEMBER || !enrolled) {
+    throw new ForbiddenError(
+      "Access denied. You are not a member of this class.",
+    );
   }
 };
-
+//hàm requireViewer: quy định chỉ admin hoặc mentor mới được xem
 const requireViewer = async (classInfo, user) => {
-  if (user.role === "ADMIN" || isMentor(classInfo, user)) {
-    return;
-  }
-
+  if (user.role === ROLES.ADMIN || isMentor(classInfo, user)) return;
   await requireMember(classInfo.id, user);
 };
 
 const checkBody = (body, allowedFields) => {
   if (!body || typeof body !== "object" || Array.isArray(body)) {
-    throw new BadRequestError("Body phải là JSON object");
+    throw new BadRequestError("Request body must be a {}.");
   }
 
   const keys = Object.keys(body);
 
-  if (!keys.length || keys.some((key) => !allowedFields.includes(key))) {
-    throw new BadRequestError("Body rỗng hoặc chứa trường không được hỗ trợ");
+  if (keys.length === 0) {
+    throw new BadRequestError("Request body must not be empty.");
+  }
+
+  const unsupported = keys.filter((key) => !allowedFields.includes(key));
+
+  if (unsupported.length > 0) {
+    throw new BadRequestError(
+      `Unsupported field(s): ${unsupported.join(", ")}.`
+    );
   }
 };
-
+// hàm text: để kiểm tra chuỗi
 const text = (value, field, maxLength, required = false) => {
   if (value === undefined || value === null) {
     if (required) {
-      throw new BadRequestError(`${field} là bắt buộc`);
+      throw new BadRequestError(`${field} is required.`);
     }
     return null;
   }
 
   if (typeof value !== "string") {
-    throw new BadRequestError(`${field} phải là chuỗi`);
+    throw new BadRequestError(`${field} must be a string.`);
   }
 
   const result = value.trim();
 
   if ((required && !result) || result.length > maxLength) {
-    throw new BadRequestError(`${field} rỗng hoặc quá dài`);
+    throw new BadRequestError(`${field} is empty or too long.`);
   }
 
   return result || null;
 };
-
+// hàm decimal: để kiểm tra số thập phân
 const decimal = (value, field, min, max) => {
   if (
     typeof value !== "number" ||
@@ -124,44 +105,55 @@ const decimal = (value, field, min, max) => {
     Math.abs(value * 100 - Math.round(value * 100)) > 0.000001
   ) {
     throw new BadRequestError(
-      `${field} phải từ ${min} đến ${max}, tối đa 2 chữ số thập phân`,
+      `${field} must be a number between ${min} and ${max}, with a maximum of 2 decimal places`,
     );
   }
 
   return value;
 };
 
+const ISO_8601 =
+  /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})$/;
+
 const deadline = (value) => {
   if (value === null) return null;
 
   if (typeof value !== "string") {
-    throw new BadRequestError("deadline phải là chuỗi hoặc null");
+    throw new BadRequestError("deadline must be a string or null.");
   }
-
-  const match = /^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})$/.exec(value);
-
+  const match = ISO_8601.exec(value);
   if (!match) {
-    throw new BadRequestError("deadline phải có dạng YYYY-MM-DD HH:mm:ss");
+    throw new BadRequestError(
+      "check deadline time format",
+    );
   }
+  const [year, month, day, hour, minute, second] = match
+    .slice(1, 7)
+    .map(Number);
 
-  const [, year, month, day, hour, minute, second] = match.map(Number);
-  const date = new Date(Date.UTC(year, month - 1, day, hour, minute, second));
+  const check = new Date(Date.UTC(year, month - 1, day, hour, minute, second));
 
   if (
     year < 1000 ||
-    date.getUTCFullYear() !== year ||
-    date.getUTCMonth() !== month - 1 ||
-    date.getUTCDate() !== day ||
-    date.getUTCHours() !== hour ||
-    date.getUTCMinutes() !== minute ||
-    date.getUTCSeconds() !== second
+    check.getUTCFullYear() !== year ||
+    check.getUTCMonth() !== month - 1 ||
+    check.getUTCDate() !== day ||
+    check.getUTCHours() !== hour ||
+    check.getUTCMinutes() !== minute ||
+    check.getUTCSeconds() !== second
   ) {
-    throw new BadRequestError("deadline không phải ngày giờ hợp lệ");
+    throw new BadRequestError("deadline is not a valid date and time.");
   }
 
-  return `${value.replace(" ", "T")}+07:00`;
-};
+  const date = new Date(value);
 
+  if (Number.isNaN(date.getTime())) {
+    throw new BadRequestError("deadline has an invalid timezone offset.");
+  }
+
+  return date.toISOString(); 
+};
+//assigmentData: để kiểm tra dữ liệu bài tập
 const assignmentData = (body, current = null) => {
   checkBody(body, ["title", "description", "deadline", "maximumScore"]);
 
@@ -192,95 +184,78 @@ const assignmentData = (body, current = null) => {
 
 // ---------- Assignment ----------
 
-export const listAssignments = async (classId, tokenUser) => {
-  const user = await getActor(tokenUser);
+export const listAssignments = async (classId, user) => {
   const classInfo = await getClass(classId);
-
   await requireViewer(classInfo, user);
-
   return repo.listAssignments(classInfo.id);
 };
 
-export const readAssignment = async (id, tokenUser) => {
-  const user = await getActor(tokenUser);
+export const readAssignment = async (id, user) => {
   const assignment = await getAssignment(id);
   const classInfo = await getClass(assignment.class_id);
-
   await requireViewer(classInfo, user);
-
   return assignment;
 };
 
-export const createAssignment = async (classId, body, tokenUser) => {
-  const user = await getActor(tokenUser);
+export const createAssignment = async (classId, body, user) => {
   const classInfo = await getClass(classId);
-
   requireMentor(classInfo, user);
-
   return repo.createAssignment(classInfo.id, assignmentData(body));
 };
 
-export const updateAssignment = async (id, body, tokenUser) => {
-  const user = await getActor(tokenUser);
+export const updateAssignment = async (id, body, user) => {
   const assignment = await getAssignment(id);
   const classInfo = await getClass(assignment.class_id);
-
   requireMentor(classInfo, user);
-
   const data = assignmentData(body, assignment);
 
   if (
     data.maximumScore !== Number(assignment.maximum_score) &&
     (await repo.hasSubmissions(assignment.id))
   ) {
-    throw new ConflictError("Không thể đổi maximumScore khi đã có bài nộp");
+    throw new ConflictError("Cannot change maximumScore because there are existing submissions.");
   }
 
   return repo.updateAssignment(assignment.id, data);
 };
 
-export const deleteAssignment = async (id, tokenUser) => {
-  const user = await getActor(tokenUser);
+export const deleteAssignment = async (id, user) => {
   const assignment = await getAssignment(id);
   const classInfo = await getClass(assignment.class_id);
-
   requireMentor(classInfo, user);
-
   await repo.deleteAssignment(assignment.id);
-
   return { id: assignment.id };
 };
 
-export const submitAssignment = async (assignmentId, body, tokenUser) => {
-  const user = await getActor(tokenUser);
+export const submitAssignment = async (assignmentId, body, user) => {
   const assignment = await getAssignment(assignmentId);
 
   await requireMember(assignment.class_id, user);
 
   if (assignment.is_closed === true) {
-    throw new BadRequestError("Assignment đã hết hạn nộp");
+    throw new BadRequestError("Cannot submit assignment because the deadline has passed.");
   }
 
   checkBody(body, ["content", "repositoryUrl"]);
 
   const content = text(body.content, "content", 10000);
   const repositoryUrl = text(body.repositoryUrl, "repositoryUrl", 500);
-
+// kiểm tra nếu cả content và repositoryUrl đều không có thì ném lỗi
   if (!content && !repositoryUrl) {
-    throw new BadRequestError("Cần có content hoặc repositoryUrl");
+    throw new BadRequestError("At least one of content or repositoryUrl must be provided.");
   }
-
+// repositoryUrl phải là một URL hợp lệ và phải sử dụng HTTP hoặc HTTPS
   if (repositoryUrl) {
     let url;
 
     try {
       url = new URL(repositoryUrl);
     } catch {
-      throw new BadRequestError("repositoryUrl không hợp lệ");
+      throw new BadRequestError("repositoryUrl is not a valid URL.");
     }
 
     if (!["https:", "http:"].includes(url.protocol)) {
-      throw new BadRequestError("repositoryUrl phải dùng HTTP hoặc HTTPS");
+      throw new BadRequestError("repositoryUrl must use HTTP or HTTPS protocol.");
     }
   }
 
@@ -294,15 +269,14 @@ export const submitAssignment = async (assignmentId, body, tokenUser) => {
       error.code === "23505" &&
       error.constraint === "uq_assignment_member_submission"
     ) {
-      throw new ConflictError("Bạn đã nộp assignment này");
+      throw new ConflictError("You have already submitted this assignment.");
     }
 
     throw error;
   }
 };
 
-export const listSubmissions = async (assignmentId, tokenUser) => {
-  const user = await getActor(tokenUser);
+export const listSubmissions = async (assignmentId, user) => {
   const assignment = await getAssignment(assignmentId);
   const classInfo = await getClass(assignment.class_id);
 
@@ -314,8 +288,7 @@ export const listSubmissions = async (assignmentId, tokenUser) => {
   return repo.listSubmissions(assignment.id, memberId);
 };
 
-export const readSubmission = async (id, tokenUser) => {
-  const user = await getActor(tokenUser);
+export const readSubmission = async (id, user) => {
   const submission = await getSubmission(id);
   const assignment = await getAssignment(submission.assignment_id);
   const classInfo = await getClass(assignment.class_id);
@@ -327,14 +300,13 @@ export const readSubmission = async (id, tokenUser) => {
     !isMentor(classInfo, user) &&
     Number(submission.member_id) !== Number(user.id)
   ) {
-    throw new ForbiddenError("Bạn không được xem bài nộp của người khác");
+    throw new ForbiddenError("Access denied. You do not have permission to view this submission.");
   }
 
   return submission;
 };
 
-export const reviewSubmission = async (id, body, tokenUser) => {
-  const user = await getActor(tokenUser);
+export const reviewSubmission = async (id, body, user) => {
   const submission = await getSubmission(id);
   const assignment = await getAssignment(submission.assignment_id);
   const classInfo = await getClass(assignment.class_id);
@@ -342,7 +314,7 @@ export const reviewSubmission = async (id, body, tokenUser) => {
   requireMentor(classInfo, user);
 
   if (Number(submission.member_id) === Number(user.id)) {
-    throw new ForbiddenError("Không được tự chấm bài của mình");
+    throw new ForbiddenError("Access denied. You cannot review your own submission.");
   }
 
   checkBody(body, ["score", "feedback"]);
