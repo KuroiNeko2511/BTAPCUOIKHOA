@@ -12,6 +12,6 @@ router.use('/auth', authRouter);
 router.use('/users', userRouter);
 router.use('/classes', classRoute);
 router.use("/", assignmentRouter);
-router.use("/lessons", lessonRouter);
+router.use("/", lessonRouter);
 
 export default router;

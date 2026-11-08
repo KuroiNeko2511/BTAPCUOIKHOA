@@ -1,36 +1,63 @@
 import * as lessonRepository from "../repository/lesson.repository.js";
 import * as classRepository from "../repository/class.repository.js";
-import { ForbiddenError, NotFoundError } from "../core/error.response.js";
+import {
+  BadRequestError,
+  ForbiddenError,
+  NotFoundError,
+} from "../core/error.response.js";
 import catchAsync from "../utils/catchAsync.js";
 
-export const requireClassMentor = catchAsync(async (req, res, next) => {
-  const userId = req.user.id;
-  const userRole = req.user.role;
+const ADMIN_ROLE = "ADMIN";
+const parsePositiveInt = (value, fieldName) => {
+  const number = Number(value);
 
-  // Admin luôn có quyền
-  if (userRole === "ADMIN") return next();
-
-  let classId = req.params.classId || req.params.id || req.body.classId;
-
-  // Nếu route là /lessons/:id thì tìm classId thông qua lesson
-  if (req.baseUrl.includes("/lessons") && req.params.id) {
-    const lesson = await lessonRepository.findLessonById(req.params.id);
-    if (!lesson) {
-      throw new NotFoundError("Không tìm thấy bài học!");
-    }
-    classId = lesson.class_id;
+  if (!Number.isSafeInteger(number) || number <= 0) {
+    throw new BadRequestError(`Invalid ${fieldName}.`);
   }
 
+  return number;
+};
+
+const authorizeClassAccess = async (req, classId) => {
   const currentClass = await classRepository.findById(classId);
-  if (!currentClass) {
-    throw new NotFoundError("Không tìm thấy lớp học!");
-  }
 
-  // 4. Kiểm tra user có phải Mentor phụ trách lớp này không
-  if (currentClass.mentor_id !== userId) {
-    throw new ForbiddenError("Bạn không phải Mentor phụ trách lớp học này!");
+  if (!currentClass) {
+    throw new NotFoundError("Class not found.");
   }
 
   req.classId = classId;
+
+  if (req.user.role === ADMIN_ROLE) return;
+
+  if (Number(currentClass.mentor_id) !== Number(req.user.id)) {
+    throw new ForbiddenError(
+      "Access denied. You are not the assigned mentor of this class."
+    );
+  }
+};
+
+export const requireClassMentor = catchAsync(async (req, _res, next) => {
+  const classId = parsePositiveInt(
+    req.params.classId ?? req.params.id ?? req.body?.classId,
+    "class ID"
+  );
+
+  await authorizeClassAccess(req, classId);
+  next();
+});
+
+export const requireLessonMentor = catchAsync(async (req, _res, next) => {
+  const lessonId = parsePositiveInt(
+    req.params.lessonId ?? req.params.id,
+    "lesson ID"
+  );
+
+  const lesson = await lessonRepository.findLessonById(lessonId);
+
+  if (!lesson) {
+    throw new NotFoundError("Lesson not found.");
+  }
+
+  await authorizeClassAccess(req, Number(lesson.class_id));
   next();
 });

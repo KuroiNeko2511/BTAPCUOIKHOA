@@ -26,12 +26,22 @@ export const validate = (rules) => {
   };
 };
 
+export const parsePositiveInt = (value, fieldName) => {
+  const number = Number(value);
+
+  if (!Number.isSafeInteger(number) || number <= 0) {
+    throw new BadRequestError(`Invalid ${fieldName}.`);
+  }
+
+  return number;
+};
+
 export const userIdParamRules = [
   param("id")
     .trim()
     .notEmpty()
     .withMessage("User ID is required")
-    .isInt({ min: 1 })
+    .custom((value) => parsePositiveInt(value, "User ID"))
     .withMessage("User ID must be a positive integer"),
 ];
 
