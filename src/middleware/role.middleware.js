@@ -1,9 +1,14 @@
-import { ForbiddenError } from "../core/error.response.js";
+import { ForbiddenError, UnauthorizedError } from "../core/error.response.js";
+import { ROLES } from "../core/constants.js";
 
-export const authorizeAdmin = (req, res, next) => {
-  if (req.user?.role !== "ADMIN") {
-    throw new ForbiddenError("Chỉ Admin được thực hiện thao tác này");
+export const authorizeAdmin = (req, _res, next) => {
+  if (!req.user) {
+    throw new UnauthorizedError("Authentication required.");
   }
 
+  if (req.user.role !== ROLES.ADMIN) {
+    throw new ForbiddenError("Access denied. Administrator privileges required.");
+  }
   next();
 };
+

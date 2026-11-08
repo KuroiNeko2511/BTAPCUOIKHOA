@@ -1,0 +1,142 @@
+/lessons/{id}:
+  get:
+    tags: [Lessons]
+    summary: Lấy chi tiết bài học
+    security:
+      - bearerAuth: []
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: integer
+    responses:
+      "200":
+        description: Chi tiết bài học
+      "404":
+        description: Không tìm thấy bài học
+
+  patch:
+    tags: [Lessons]
+    summary: Cập nhật bài học (Mentor)
+    security:
+      - bearerAuth: []
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: integer
+    requestBody:
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              title:
+                type: string
+              content:
+                type: string
+              order:
+                type: integer
+    responses:
+      "200":
+        description: Cập nhật thành công
+
+  delete:
+    tags: [Lessons]
+    summary: Xoá bài học (Mentor)
+    security:
+      - bearerAuth: []
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: integer
+    responses:
+      "200":
+        description: Xoá thành công
+
+/lessons/{id}/complete:
+  post:
+    tags: [Lessons]
+    summary: Đánh dấu hoàn thành bài học (Member)
+    security:
+      - bearerAuth: []
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: integer
+    responses:
+      "200":
+        description: Đánh dấu thành công
+
+/classes/{classId}/lessons:
+  post:
+    tags: [Lessons]
+    summary: Tạo bài học trong lớp (Mentor)
+    security:
+      - bearerAuth: []
+    parameters:
+      - in: path
+        name: classId
+        required: true
+        schema:
+          type: integer
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [title]
+            properties:
+              title:
+                type: string
+              content:
+                type: string
+              order:
+                type: integer
+    responses:
+      "201":
+        description: Tạo bài học thành công
+      "403":
+        description: Không phải Mentor của lớp
+
+  get:
+    tags: [Lessons]
+    summary: Lấy danh sách bài học của lớp
+    security:
+      - bearerAuth: []
+    parameters:
+      - in: path
+        name: classId
+        required: true
+        schema:
+          type: integer
+    responses:
+      "200":
+        description: Danh sách bài học
+      "404":
+        description: Không tìm thấy lớp
+
+/classes/{classId}/progress:
+  get:
+    tags: [Lessons]
+    summary: Lấy tiến độ học của lớp
+    security:
+      - bearerAuth: []
+    parameters:
+      - in: path
+        name: classId
+        required: true
+        schema:
+          type: integer
+    responses:
+      "200":
+        description: Tiến độ học
+      "403":
+        description: Không có quyền truy cập

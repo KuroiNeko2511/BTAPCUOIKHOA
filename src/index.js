@@ -4,10 +4,13 @@ import errorHandler from "./middleware/errorHandler.js";
 import { NotFoundError } from "./core/error.response.js";
 import { config } from "./config/env.config.js";
 import { connectDB } from "./config/db.config.js";
+import { setupSwagger } from "./config/swagger.js";
 
 const app = express();
 
 app.use(express.json());
+
+setupSwagger(app);
 
 app.use("/", router);
 

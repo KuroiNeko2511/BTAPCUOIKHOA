@@ -1,0 +1,102 @@
+/users:
+  get:
+    tags: [Users]
+    summary: Lấy danh sách tất cả người dùng (Admin)
+    security:
+      - bearerAuth: []
+    responses:
+      "200":
+        description: Danh sách user
+      "403":
+        description: Không có quyền Admin
+
+  post:
+    tags: [Users]
+    summary: Tạo user mới (Admin)
+    security:
+      - bearerAuth: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [name, email, password]
+            properties:
+              name:
+                type: string
+              email:
+                type: string
+              password:
+                type: string
+              role:
+                type: string
+                enum: [ADMIN, MEMBER]
+    responses:
+      "201":
+        description: Tạo thành công
+      "409":
+        description: Email đã tồn tại
+
+/users/{id}:
+  get:
+    tags: [Users]
+    summary: Lấy thông tin user theo ID (Admin)
+    security:
+      - bearerAuth: []
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: integer
+    responses:
+      "200":
+        description: Thông tin user
+      "404":
+        description: Không tìm thấy user
+
+  patch:
+    tags: [Users]
+    summary: Cập nhật user (Admin)
+    security:
+      - bearerAuth: []
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: integer
+    requestBody:
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              name:
+                type: string
+              email:
+                type: string
+              password:
+                type: string
+              role:
+                type: string
+                enum: [ADMIN, MEMBER]
+    responses:
+      "200":
+        description: Cập nhật thành công
+
+  delete:
+    tags: [Users]
+    summary: Xoá user (Admin)
+    security:
+      - bearerAuth: []
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: integer
+    responses:
+      "200":
+        description: Xoá thành công
