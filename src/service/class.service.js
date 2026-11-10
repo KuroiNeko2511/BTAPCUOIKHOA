@@ -7,17 +7,36 @@ import {
   NotFoundError,
 } from "../core/error.response.js";
 import { ROLES } from "../core/constants.js";
-import { parsePositiveInt } from "../utils/validators.js";
+import { parsePositiveInt, parseDateOnly } from "../utils/validators.js";
+import { formatStoredDate } from "../utils/date.helper.js";
+import {
+  validateClassDescription,
+  validateClassStatus,
+} from "../middleware/validate.js";
 
-// hàm này kiệm để kiểm tra tính hợp lệ của ngày tháng, nếu không hợp lệ sẽ ném ra lỗi BadRequestError
-const parseDate = (value, fieldName) => {
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    throw new BadRequestError(`Invalid ${fieldName}.`);
+//kiểm tra ngày hợp lệ và ngày kết thúc không trước ngày bắt đầu
+const assertValidDateRange = (startDate, endDate) => {
+  if (startDate != null) {
+    parseDateOnly(startDate, "startDate");
   }
 
-  return date;
+  if (endDate != null) {
+    parseDateOnly(endDate, "endDate");
+  }
+
+  if (startDate != null && endDate != null && endDate < startDate) {
+    throw new BadRequestError("endDate must be on or after startDate.");
+  }
+};
+//kiểm tra mentor tồn tại và đang hoạt động
+const assertActiveMentor = async (mentorId) => {
+  const mentor = await userRepository.findById(mentorId);
+
+  if (!mentor || !mentor.is_active) {
+    throw new NotFoundError("Mentor not found or inactive.");
+  }
+
+  return mentor;
 };
 // Tôi tách findClassOrThrow để tái sử dụng khỏi phỉ code nhiều lần
 const findClassOrThrow = async (classId) => {
@@ -31,26 +50,51 @@ const findClassOrThrow = async (classId) => {
 };
 
 export const createNewClass = async (classData) => {
-  const { name, mentor_id, start_date, end_date } = classData;
-
-  if (!name?.trim() || mentor_id === undefined) {
-    throw new BadRequestError("Class name and mentor ID are required.");
+  if (!classData || typeof classData !== "object" || Array.isArray(classData)) {
+    throw new BadRequestError("Please check the class details and try again.");
   }
 
-  const mentorId = parsePositiveInt(mentor_id, "mentor ID");
-  assertValidDateRange(start_date, end_date);
+  const { name, description, mentorId, startDate, endDate } = classData;
 
-  const existingClass = await classRepository.findByName(name);
+  if (typeof name !== "string" || !name.trim() || name.trim().length > 150) {
+    throw new BadRequestError(
+      "Please enter a class name between 1 and 150 characters.",
+    );
+  }
+
+  if (
+    description !== undefined &&
+    description !== null &&
+    typeof description !== "string"
+  ) {
+    throw new BadRequestError(
+      "Please enter a description using text, or leave it blank.",
+    );
+  }
+
+  const parsedMentorId = parsePositiveInt(mentorId, "mentorId");
+
+  assertValidDateRange(startDate, endDate);
+  await assertActiveMentor(parsedMentorId);
+
+  const normalizedName = name.trim();
+  const existingClass = await classRepository.findByName(normalizedName);
+
   if (existingClass) {
     throw new ConflictError("A class with this name already exists.");
   }
 
-  await assertActiveMentor(mentorId);
+  const data = {
+    name: normalizedName,
+    description: description ?? null,
+    mentorId: parsedMentorId,
+    startDate: startDate ?? null,
+    endDate: endDate ?? null,
+  };
 
-  const data = { ...classData, mentor_id: mentorId };
-  const newClassId = await classRepository.insertClass(data);
+  const id = await classRepository.insertClass(data);
 
-  return { ...data, id: newClassId };
+  return { id, ...data };
 };
 
 // getClassesByRole: Lấy danh sách lớp học dựa trên vai trò của người dùng
@@ -64,16 +108,19 @@ export const getClassesByRole = async (user) => {
 
 // Xem chi tiết lớp và kiểm tra quyền
 export const getClassDetail = async (classId, user) => {
-  const foundClass = await findClassOrThrow(classId);
+  const id = parsePositiveInt(classId, "Class ID");
+  const foundClass = await findClassOrThrow(id);
 
   if (user.role === ROLES.ADMIN) return foundClass;
 
   const isEnrolledOrMentor = await classRepository.isMemberOrMentorOfClass(
-    classId,
-    user.id
+    id,
+    user.id,
   );
   if (!isEnrolledOrMentor) {
-    throw new ForbiddenError("Access denied. You do not have access to this class.");
+    throw new ForbiddenError(
+      "Access denied. You do not have access to this class.",
+    );
   }
 
   return foundClass;
@@ -81,35 +128,90 @@ export const getClassDetail = async (classId, user) => {
 
 // Cập nhật lớp
 export const updateExistingClass = async (classId, updateData) => {
+  const id = parsePositiveInt(classId, "Class ID");
+
+  if (
+    !updateData ||
+    typeof updateData !== "object" ||
+    Array.isArray(updateData)
+  ) {
+    throw new BadRequestError("Request body must be a JSON object.");
+  }
+
   if (Object.keys(updateData).length === 0) {
     throw new BadRequestError("No fields to update.");
   }
 
-  const existingClass = await findClassOrThrow(classId);
+  const allowedFields = [
+    "name",
+    "description",
+    "mentorId",
+    "startDate",
+    "endDate",
+    "status",
+  ];
 
-  assertValidDateRange(
-    updateData.start_date ?? existingClass.start_date,
-    updateData.end_date ?? existingClass.end_date
+  const unsupportedFields = Object.keys(updateData).filter(
+    (field) => !allowedFields.includes(field),
   );
 
-  if (updateData.name !== undefined && updateData.name !== existingClass.name) {
-    const duplicate = await classRepository.findByName(updateData.name);
-    if (duplicate && Number(duplicate.id) !== Number(classId)) {
+  if (unsupportedFields.length > 0) {
+    throw new BadRequestError(
+      `Unsupported fields: ${unsupportedFields.join(", ")}.`,
+    );
+  }
+
+  const existingClass = await findClassOrThrow(id);
+
+  const startDate =
+    updateData.startDate !== undefined
+      ? updateData.startDate
+      : formatStoredDate(existingClass.start_date);
+
+  const endDate =
+    updateData.endDate !== undefined
+      ? updateData.endDate
+      : formatStoredDate(existingClass.end_date);
+
+  assertValidDateRange(startDate, endDate);
+
+  if (updateData.name !== undefined) {
+    if (typeof updateData.name !== "string") {
+      throw new BadRequestError("name must be a string.");
+    }
+
+    const normalizedName = updateData.name.trim();
+
+    if (normalizedName.length === 0 || normalizedName.length > 150) {
+      throw new BadRequestError(
+        "name must contain between 1 and 150 characters.",
+      );
+    }
+
+    const duplicate = await classRepository.findByName(normalizedName);
+
+    if (duplicate && Number(duplicate.id) !== id) {
       throw new ConflictError("A class with this name already exists.");
     }
+
+    updateData.name = normalizedName;
   }
 
   const data = { ...updateData };
-  if (data.mentor_id !== undefined) {
-    data.mentor_id = parsePositiveInt(data.mentor_id, "mentor ID");
-    await assertActiveMentor(data.mentor_id);
+  data.description = validateClassDescription(data.description);
+  data.status = validateClassStatus(data.status);
+  if (data.mentorId !== undefined) {
+    data.mentorId = parsePositiveInt(data.mentorId, "mentorId");
+
+    await assertActiveMentor(data.mentorId);
   }
 
-  return classRepository.update(classId, data);
+  return classRepository.update(id, data);
 };
 
 // Xóa lớp
 export const deleteClassById = async (classId) => {
-  await findClassOrThrow(classId);
-  return classRepository.deleteById(classId);
+  const id = parsePositiveInt(classId, "Class ID");
+  await findClassOrThrow(id);
+  return classRepository.deleteById(id);
 };
