@@ -1,16 +1,27 @@
 import * as lessonRepository from "../repository/lesson.repository.js";
 import * as classRepository from "../repository/class.repository.js";
-
+import { parsePositiveInt } from "../utils/validators.js";
 import {
   NotFoundError,
   ForbiddenError,
   ConflictError,
   BadRequestError,
 } from "../core/error.response.js";
+import {
+  validateLessonOrderIndex,
+  validateLessonTitle,
+  validateLessonContent,
+} from "../middleware/validate.js";
+
 //ensureClassAccess: kiểm tra quyền truy cập của người dùng vào lớp học
 const ensureClassAccess = async (classId, user, permission = "VIEW") => {
-  if (user.role === "ADMIN") return;
+  const id = parsePositiveInt(classId, "Class ID");
+  const classInfo = await classRepository.findById(id);
 
+  if (!classInfo) {
+    throw new NotFoundError("Class not found.");
+  }
+  if (user.role === "ADMIN") return;
   let hasAccess = false;
 
   if (permission === "MANAGE") {
@@ -29,8 +40,8 @@ const ensureClassAccess = async (classId, user, permission = "VIEW") => {
 };
 //getLessonWithAccess: kiểm tra quyền truy cập của người dùng vào bài học
 const getLessonWithAccess = async (lessonId, user, permission = "VIEW") => {
+  lessonId = parsePositiveInt(lessonId, "Lesson ID");
   const lesson = await lessonRepository.findLessonById(lessonId);
-
   if (!lesson) {
     throw new NotFoundError("Lesson not found!");
   }
@@ -41,7 +52,20 @@ const getLessonWithAccess = async (lessonId, user, permission = "VIEW") => {
 };
 //pickLessonUpdates: lọc dữ liệu cập nhật bài học
 const pickLessonUpdates = (data) => {
+  if (!data || typeof data !== "object" || Array.isArray(data)) {
+    throw new BadRequestError("Please check your information and try again.");
+  }
   const allowedFields = ["title", "content", "orderIndex"];
+
+  const unsupportedFields = Object.keys(data).filter(
+    (field) => !allowedFields.includes(field),
+  );
+
+  if (unsupportedFields.length > 0) {
+    throw new BadRequestError(
+      `Unsupported fields: ${unsupportedFields.join(", ")}.`,
+    );
+  }
 
   const updateData = {};
 
@@ -57,13 +81,17 @@ const pickLessonUpdates = (data) => {
 export const createLesson = async (data, user) => {
   const { classId, title, content, orderIndex } = data;
 
+  const validatedTitle = validateLessonTitle(title);
+  const validatedContent = validateLessonContent(content);
+  const validatedOrderIndex = validateLessonOrderIndex(orderIndex);
+
   await ensureClassAccess(classId, user, "MANAGE");
 
   return lessonRepository.createLesson({
     classId,
-    title,
-    content,
-    orderIndex,
+    title: validatedTitle,
+    content: validatedContent,
+    orderIndex: validatedOrderIndex,
     createdBy: user.id,
   });
 };
@@ -82,7 +110,15 @@ export const updateLesson = async (lessonId, data, user) => {
   await getLessonWithAccess(lessonId, user, "MANAGE");
 
   const updateData = pickLessonUpdates(data);
-
+  if (updateData.title !== undefined) {
+    updateData.title = validateLessonTitle(updateData.title);
+  }
+  if (updateData.content !== undefined) {
+    updateData.content = validateLessonContent(updateData.content);
+  }
+  if (updateData.orderIndex !== undefined) {
+    updateData.orderIndex = validateLessonOrderIndex(updateData.orderIndex);
+  }
   if (Object.keys(updateData).length === 0) {
     throw new BadRequestError("No valid fields to update!");
   }
@@ -99,13 +135,11 @@ export const deleteLesson = async (lessonId, user) => {
 export const completeLesson = async (lessonId, user) => {
   await getLessonWithAccess(lessonId, user, "VIEW");
 
-  const existing = await lessonRepository.findProgress(lessonId, user.id);
+  const progress = await lessonRepository.markCompleted(lessonId, user.id);
 
-  if (existing) {
-    throw new ConflictError("Lesson has already been marked as completed!");
+  if (!progress) {
+    throw new ConflictError("Lesson has already been marked as completed.");
   }
-
-  await lessonRepository.markCompleted(lessonId, user.id);
 
   return {
     message: "Lesson completed successfully!",
