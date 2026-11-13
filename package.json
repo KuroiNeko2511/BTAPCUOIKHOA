@@ -5,7 +5,10 @@
   "type": "module",
   "scripts": {
     "start": "node src/index.js",
-    "dev": "node --watch src/index.js"
+    "dev": "node --watch src/index.js",
+    "migration": "node ./src/database/migration.js",
+    "seed": "node ./src/database/seeds/seed.js",
+    "db:setup": "npm run migrate && npm run seed"
   },
   "author": "",
   "license": "ISC",
