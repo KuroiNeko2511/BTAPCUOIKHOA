@@ -4,13 +4,13 @@ export const sendSuccess = (res, statusCodeOrOptions = 200, message = 'Success',
   let msg = 'Success';
   let resData = null;
 
-  // Nếu người viết truyền dạng Object: sendSuccess(res, { statusCode, message, data })[cite: 1]
+  // Nếu người viết truyền dạng Object: sendSuccess(res, { statusCode, message, data })
   if (typeof statusCodeOrOptions === 'object' && statusCodeOrOptions !== null) {
     statusCode = Number(statusCodeOrOptions.statusCode) || 200;
     msg = statusCodeOrOptions.message || 'Success';
     resData = statusCodeOrOptions.data !== undefined ? statusCodeOrOptions.data : null;
   } else {
-    // Nếu người viết truyền dạng tham số rời: sendSuccess(res, 200, 'Success', data)[cite: 1]
+    // Nếu người viết truyền dạng tham số rời: sendSuccess(res, 200, 'Success', data)
     statusCode = Number(statusCodeOrOptions) || 200;
     msg = message;
     resData = data;

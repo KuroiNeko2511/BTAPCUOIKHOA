@@ -8,14 +8,16 @@ import { requireClassMentor } from "../middleware/classMentor.middleware.js";
 
 const router = Router();
 
-router.get("/", authenticateToken, classController.getClasses);
-router.post("/", authenticateToken, authorizeAdmin, classController.createClass);
-router.get("/:id", authenticateToken, classController.getClassById);
-router.patch("/:id", authenticateToken, authorizeAdmin, classController.updateClass);
-router.delete("/:id", authenticateToken, authorizeAdmin, classController.deleteClass);
+router.use(authenticateToken);
 
-router.get("/:id/members", authenticateToken, classMemberController.getMembers);
-router.post("/:id/members", authenticateToken, authorizeAdmin, classMemberController.addMember);
-router.delete("/:id/members/:memberId", authenticateToken, authorizeAdmin, classMemberController.removeMember);
+router.get("/", classController.getClasses);
+router.post("/", authorizeAdmin, classController.createClass);
+router.get("/:id", classController.getClassById);
+router.patch("/:id", authorizeAdmin, classController.updateClass);
+router.delete("/:id", authorizeAdmin, classController.deleteClass);
+
+router.get("/:id/members", classMemberController.getMembers);
+router.post("/:id/members", authorizeAdmin, classMemberController.addMember);
+router.delete("/:id/members/:memberId", authorizeAdmin, classMemberController.removeMember);
 
 export default router;

@@ -13,60 +13,12 @@ import {
   validateLessonContent,
 } from "../middleware/validate.js";
 
-//ensureClassAccess: kiểm tra quyền truy cập của người dùng vào lớp học
-const ensureClassAccess = async (classId, user, permission = "VIEW") => {
-  const id = parsePositiveInt(classId, "Class ID");
-  const classInfo = await classRepository.findById(id);
-
-  if (!classInfo) {
-    throw new NotFoundError("Class not found.");
-  }
-  if (user.role === "ADMIN") return;
-  let hasAccess = false;
-
-  if (permission === "MANAGE") {
-    hasAccess = await classRepository.isMentorOfClass(classId, user.id);
-  } else if (permission === "VIEW") {
-    hasAccess = await classRepository.isMemberOrMentorOfClass(classId, user.id);
-  } else {
-    throw new Error("Invalid permission");
-  }
-
-  if (!hasAccess) {
-    throw new ForbiddenError(
-      "You do not have permission to access this class!",
-    );
-  }
-};
-//getLessonWithAccess: kiểm tra quyền truy cập của người dùng vào bài học
-const getLessonWithAccess = async (lessonId, user, permission = "VIEW") => {
-  lessonId = parsePositiveInt(lessonId, "Lesson ID");
-  const lesson = await lessonRepository.findLessonById(lessonId);
-  if (!lesson) {
-    throw new NotFoundError("Lesson not found!");
-  }
-
-  await ensureClassAccess(lesson.class_id, user, permission);
-
-  return lesson;
-};
-//pickLessonUpdates: lọc dữ liệu cập nhật bài học
+// Hàm hỗ trợ lọc field update
 const pickLessonUpdates = (data) => {
   if (!data || typeof data !== "object" || Array.isArray(data)) {
     throw new BadRequestError("Please check your information and try again.");
   }
   const allowedFields = ["title", "content", "orderIndex"];
-
-  const unsupportedFields = Object.keys(data).filter(
-    (field) => !allowedFields.includes(field),
-  );
-
-  if (unsupportedFields.length > 0) {
-    throw new BadRequestError(
-      `Unsupported fields: ${unsupportedFields.join(", ")}.`,
-    );
-  }
-
   const updateData = {};
 
   for (const field of allowedFields) {
@@ -74,83 +26,133 @@ const pickLessonUpdates = (data) => {
       updateData[field] = data[field];
     }
   }
-
   return updateData;
 };
 
+// 1. Tạo bài học (Chỉ Admin hoặc Mentor của lớp)
 export const createLesson = async (data, user) => {
-  const { classId, title, content, orderIndex } = data;
+  const classId = parsePositiveInt(data.classId, "Class ID");
+  const title = validateLessonTitle(data.title);
+  const content = validateLessonContent(data.content);
+  const orderIndex = validateLessonOrderIndex(data.orderIndex);
 
-  const validatedTitle = validateLessonTitle(title);
-  const validatedContent = validateLessonContent(content);
-  const validatedOrderIndex = validateLessonOrderIndex(orderIndex);
+  const classInfo = await classRepository.findById(classId);
+  if (!classInfo) throw new NotFoundError("Class not found.");
 
-  await ensureClassAccess(classId, user, "MANAGE");
+  if (user.role !== "ADMIN") {
+    const isMentor = await classRepository.isMentorOfClass(classId, user.id);
+    if (!isMentor) throw new ForbiddenError("Chỉ Mentor của lớp mới được tạo bài học!");
+  }
 
   return lessonRepository.createLesson({
     classId,
-    title: validatedTitle,
-    content: validatedContent,
-    orderIndex: validatedOrderIndex,
+    title,
+    content,
+    orderIndex,
     createdBy: user.id,
   });
 };
 
+// 2. Xem danh sách bài học trong lớp (Admin, Mentor lớp hoặc Học viên trong lớp)
 export const getLessonsByClass = async (classId, user) => {
-  await ensureClassAccess(classId, user, "VIEW");
+  const id = parsePositiveInt(classId, "Class ID");
+  const classInfo = await classRepository.findById(id);
+  if (!classInfo) throw new NotFoundError("Class not found.");
 
-  return lessonRepository.findLessonsByClassId(classId);
+  if (user.role !== "ADMIN") {
+    const hasAccess = await classRepository.isMemberOrMentorOfClass(id, user.id);
+    if (!hasAccess) throw new ForbiddenError("Bạn không thuộc lớp học này!");
+  }
+
+  return lessonRepository.findLessonsByClassId(id);
 };
 
+// 3. Xem chi tiết 1 bài học
 export const getLessonById = async (lessonId, user) => {
-  return getLessonWithAccess(lessonId, user, "VIEW");
+  const id = parsePositiveInt(lessonId, "Lesson ID");
+  const lesson = await lessonRepository.findLessonById(id);
+  if (!lesson) throw new NotFoundError("Lesson not found!");
+
+  if (user.role !== "ADMIN") {
+    const hasAccess = await classRepository.isMemberOrMentorOfClass(lesson.class_id, user.id);
+    if (!hasAccess) throw new ForbiddenError("Bạn không thuộc lớp học này!");
+  }
+
+  return lesson;
 };
 
+// 4. Cập nhật bài học (Chỉ Admin hoặc Mentor của lớp)
 export const updateLesson = async (lessonId, data, user) => {
-  await getLessonWithAccess(lessonId, user, "MANAGE");
+  const id = parsePositiveInt(lessonId, "Lesson ID");
+  const lesson = await lessonRepository.findLessonById(id);
+  if (!lesson) throw new NotFoundError("Lesson not found!");
+
+  if (user.role !== "ADMIN") {
+    const isMentor = await classRepository.isMentorOfClass(lesson.class_id, user.id);
+    if (!isMentor) throw new ForbiddenError("Chỉ Mentor của lớp mới được sửa bài học!");
+  }
 
   const updateData = pickLessonUpdates(data);
-  if (updateData.title !== undefined) {
-    updateData.title = validateLessonTitle(updateData.title);
-  }
-  if (updateData.content !== undefined) {
-    updateData.content = validateLessonContent(updateData.content);
-  }
-  if (updateData.orderIndex !== undefined) {
-    updateData.orderIndex = validateLessonOrderIndex(updateData.orderIndex);
-  }
+  if (updateData.title !== undefined) updateData.title = validateLessonTitle(updateData.title);
+  if (updateData.content !== undefined) updateData.content = validateLessonContent(updateData.content);
+  if (updateData.orderIndex !== undefined) updateData.orderIndex = validateLessonOrderIndex(updateData.orderIndex);
+
   if (Object.keys(updateData).length === 0) {
     throw new BadRequestError("No valid fields to update!");
   }
 
-  return lessonRepository.updateLesson(lessonId, updateData);
+  return lessonRepository.updateLesson(id, updateData);
 };
 
+// 5. Xóa bài học (Chỉ Admin hoặc Mentor của lớp)
 export const deleteLesson = async (lessonId, user) => {
-  await getLessonWithAccess(lessonId, user, "MANAGE");
+  const id = parsePositiveInt(lessonId, "Lesson ID");
+  const lesson = await lessonRepository.findLessonById(id);
+  if (!lesson) throw new NotFoundError("Lesson not found!");
 
-  return lessonRepository.deleteLesson(lessonId);
+  if (user.role !== "ADMIN") {
+    const isMentor = await classRepository.isMentorOfClass(lesson.class_id, user.id);
+    if (!isMentor) throw new ForbiddenError("Chỉ Mentor của lớp mới được xóa bài học!");
+  }
+
+  return lessonRepository.deleteLesson(id);
 };
 
+// 6. Đánh dấu hoàn thành bài học (Trỏ từ lessonId -> lesson.class_id để check thành viên lớp)
 export const completeLesson = async (lessonId, user) => {
-  await getLessonWithAccess(lessonId, user, "VIEW");
+  const id = parsePositiveInt(lessonId, "Lesson ID");
+  const lesson = await lessonRepository.findLessonById(id);
+  if (!lesson) throw new NotFoundError("Lesson not found!");
 
-  const progress = await lessonRepository.markCompleted(lessonId, user.id);
+  // Chỉ kiểm tra học viên thực sự tham gia lớp (bỏ qua Mentor và Admin)
+  const isMember = await classRepository.isMemberOfClass(lesson.class_id, user.id);
+  if (!isMember) {
+    throw new ForbiddenError("Chỉ học viên thuộc lớp học này mới được đánh dấu hoàn thành bài học!");
+  }
 
+  const progress = await lessonRepository.markCompleted(id, user.id);
   if (!progress) {
     throw new ConflictError("Lesson has already been marked as completed.");
   }
 
   return {
     message: "Lesson completed successfully!",
+    data: progress,
   };
 };
 
+// 7. Xem tiến độ học tập
 export const getClassProgress = async (classId, user) => {
-  await ensureClassAccess(classId, user, "VIEW");
+  const id = parsePositiveInt(classId, "Class ID");
+  const classInfo = await classRepository.findById(id);
+  if (!classInfo) throw new NotFoundError("Class not found.");
 
-  const stats = await lessonRepository.getProgressStats(classId, user.id);
+  if (user.role !== "ADMIN") {
+    const hasAccess = await classRepository.isMemberOrMentorOfClass(id, user.id);
+    if (!hasAccess) throw new ForbiddenError("Bạn không thuộc lớp học này!");
+  }
 
+  const stats = await lessonRepository.getProgressStats(id, user.id);
   const progress =
     stats.totalLessons > 0
       ? Math.round((stats.completedLessons / stats.totalLessons) * 100)

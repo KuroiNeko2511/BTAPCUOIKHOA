@@ -131,6 +131,18 @@ export const isMentorOfClass = async (classId, mentorId) => {
   return rows.length > 0;
 };
 
+// Kiểm tra học viên (Member) có nằm trong lớp học hay không
+export const isMemberOfClass = async (classId, memberId) => {
+  const query = `
+    SELECT 1 
+    FROM class_members 
+    WHERE class_id = $1 AND member_id = $2
+    LIMIT 1
+  `;
+  const { rows } = await pool.query(query, [classId, memberId]);
+  return rows.length > 0;
+};
+
 // Tìm lớp học theo tên (không phân biệt hoa thường)
 export const findByName = async (name) => {
   const query = `
