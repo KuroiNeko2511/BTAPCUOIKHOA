@@ -1,7 +1,13 @@
 import pool from "../config/db.config.js";
 
 // 1. Tạo bài học mới (Mentor của lớp)
-export const createLesson = async ({ classId, title, content, orderIndex, createdBy }) => {
+export const createLesson = async ({
+  classId,
+  title,
+  content,
+  orderIndex,
+  createdBy,
+}) => {
   const query = `
     INSERT INTO lessons (class_id, title, content, order_index, created_by)
     VALUES ($1, $2, $3, $4, $5)
@@ -11,7 +17,7 @@ export const createLesson = async ({ classId, title, content, orderIndex, create
     classId,
     title,
     content ?? null,
-    orderIndex || 1,
+    orderIndex ?? 1,
     createdBy,
   ]);
   return rows[0];
@@ -43,22 +49,42 @@ export const findLessonsByClassId = async (classId) => {
 };
 
 // 4. Cập nhật bài học
-export const updateLesson = async (id, { title, content, orderIndex }) => {
+export const updateLesson = async (id, data) => {
+  const columns = {
+    title: "title",
+    content: "content",
+    orderIndex: "order_index",
+  };
+
+  const fields = Object.keys(columns).filter(
+    (field) => data[field] !== undefined,
+  );
+
+  if (fields.length === 0) {
+    throw new Error("No supported update fields were provided.");
+  }
+
+  const values = fields.map((field) => data[field]);
+
+  const assignments = fields.map(
+    (field, index) => `${columns[field]} = $${index + 1}`,
+  );
+
+  values.push(id);
+
   const query = `
-    UPDATE lessons 
-    SET title = COALESCE($1, title),
-        content = COALESCE($2, content),
-        order_index = COALESCE($3, order_index)
-    WHERE id = $4
-    RETURNING id, class_id, title, content, order_index, created_by, created_at, updated_at
+    UPDATE lessons
+    SET ${assignments.join(", ")},
+        updated_at = CURRENT_TIMESTAMP
+    WHERE id = $${values.length}
+    RETURNING id, class_id, title, content,
+              order_index, created_by,
+              created_at, updated_at
   `;
-  const { rows } = await pool.query(query, [
-    title ?? null,
-    content ?? null,
-    orderIndex ?? null,
-    id,
-  ]);
-  return rows[0] || null;
+
+  const { rows } = await pool.query(query, values);
+
+  return rows[0] ?? null;
 };
 
 // 5. Xóa bài học

@@ -3,20 +3,6 @@ import catchAsync from '../utils/catchAsync.js';
 import { sendSuccess } from '../utils/responseHelper.js';
 import { parsePositiveInt } from "../utils/validators.js";
 
-const pickClassFields = (body = {}) => {
-  const fields = {
-    name: body.name,
-    description: body.description,
-    mentor_id: body.mentor_id ?? body.mentorId,
-    start_date: body.start_date ?? body.startDate,
-    end_date: body.end_date ?? body.endDate,
-  };
-
-  return Object.fromEntries(
-    Object.entries(fields).filter(([, value]) => value !== undefined)
-  );
-};
-
 export const createClass = catchAsync(async (req, res) => {
   const result = await classService.createNewClass(req.body);
   return sendSuccess(res, 201, 'Class created successfully!', result);

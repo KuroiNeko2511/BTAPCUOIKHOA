@@ -140,3 +140,85 @@ export const loginRules = [
     .notEmpty()
     .withMessage("Mật khẩu không được để trống"),
 ];
+
+export const validateClassDescription = (description) => {
+  if (description === undefined || description === null) {
+    return description;
+  }
+
+  if (typeof description !== "string") {
+    throw new BadRequestError(
+      "description must be a string or null.",
+    );
+  }
+
+  return description.trim();
+};
+
+export const validateClassStatus = (status) => {
+  if (status === undefined) {
+    return status;
+  }
+
+  const allowedStatuses = [
+    "UPCOMING",
+    "ONGOING",
+    "COMPLETED",
+  ];
+
+  if (!allowedStatuses.includes(status)) {
+    throw new BadRequestError(
+      "status must be UPCOMING, ONGOING, or COMPLETED.",
+    );
+  }
+
+  return status;
+};
+// validateLessonOrderIndex: kiểm tra số nguyên dương 32-bit của bài học
+export const validateLessonOrderIndex = (orderIndex) => {
+  if (orderIndex === undefined) {
+    return undefined;
+  }
+
+  if (
+    !Number.isInteger(orderIndex) ||
+    orderIndex <= 0 ||
+    orderIndex > 2147483647
+  ) {
+    throw new BadRequestError(
+      "orderIndex must be a positive 32-bit integer.",
+    );
+  }
+
+  return orderIndex;
+};
+
+export const validateLessonTitle = (title) => {
+  if (typeof title !== "string") {
+    throw new BadRequestError("title must be a string.");
+  }
+
+  const normalizedTitle = title.trim();
+
+  if (normalizedTitle.length === 0 || normalizedTitle.length > 200) {
+    throw new BadRequestError(
+      "title must contain between 1 and 200 characters.",
+    );
+  }
+
+  return normalizedTitle;
+};
+
+export const validateLessonContent = (content) => {
+  if (content === undefined || content === null) {
+    return content;
+  }
+
+  if (typeof content !== "string") {
+    throw new BadRequestError(
+      "content must be a string or null.",
+    );
+  }
+
+  return content;
+};
