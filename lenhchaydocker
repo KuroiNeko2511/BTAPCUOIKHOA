@@ -1,0 +1,31 @@
+docker run -d \
+  --name backend_app \
+  -p 3000:3000 \
+  --restart unless-stopped \
+  -e PORT=3000 \
+  -e NODE_ENV=production \
+  -e DATABASE_URL="postgresql://neondb_owner:npg_wTfOizygs09P@ep-broad-field-a12nzqx5-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require" \
+  -e JWT_SECRET=sgroup_super_secret_jwt_training_key_2026 \
+  -e JWT_EXPIRES_IN=1d \
+  -e JWT_REFRESH_SECRET=refresh_secret_key_123456 \
+  -e JWT_REFRESH_EXPIRES_IN=7d \
+  -e R2_ACCOUNT_ID=5c28835a3254b8fa23cc4c9a3edfd607 \
+  -e R2_BUCKET_NAME=sgroup-storage \
+  -e R2_PUBLIC_DOMAIN=https://pub-ed89856166a349a3a1c30a77294ed1f0.r2.dev \
+  -e R2_ACCESS_KEY_ID=85f97995edb092ddf7a23858a20252f6 \
+  -e R2_SECRET_ACCESS_KEY=67f69be0d271cae3a9fab098b09d4305edfde5b045ba654dccc961e9a87da4ae \
+  phancam/sgroup-backend:latest
+
+  docker run -d \
+  --name backend_ck \
+  -p 3001:3000 \
+  --restart unless-stopped \
+  -e PORT=3000 \
+  -e NODE_ENV=production \
+  -e PGSSLMODE=require \
+  -e DATABASE_URL="postgresql://neondb_owner:npg_fN5zV9KUQCvE@ep-purple-sunset-b5hztnvr-pooler.c-7.us-east-2.aws.neon.tech/edumotion?sslmode=require" \
+  -e JWT_SECRET=sgroup_super_secret_jwt_training_key_2026 \
+  -e JWT_EXPIRES_IN=1d \
+  -e JWT_REFRESH_SECRET=refresh_secret_key_123456 \
+  -e JWT_REFRESH_EXPIRES_IN=7d \
+  phancam/btck:latest
