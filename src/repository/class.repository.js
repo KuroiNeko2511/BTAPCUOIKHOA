@@ -60,51 +60,45 @@ export const findClassesForMember = async (memberId) => {
 };
 
 // 5. Cập nhật thông tin lớp học (Admin)
-export const update = async (id, updateData) => {
-  const {
-    name,
-    description,
-    startDate,
-    start_date,
-    endDate,
-    end_date,
-    mentorId,
-    mentor_id,
-    status
-  } = updateData;
+export const update = async (id, data) => {
+  const columns = {
+    name: "name",
+    description: "description",
+    mentorId: "mentor_id",
+    startDate: "start_date",
+    endDate: "end_date",
+    status: "status",
+  };
 
-  const finalStartDate = startDate !== undefined ? startDate : start_date;
-  const finalEndDate = endDate !== undefined ? endDate : end_date;
-  const finalMentorId = mentorId !== undefined ? mentorId : mentor_id;
+  const fields = Object.keys(columns).filter(
+    (field) => data[field] !== undefined,
+  );
+
+  if (fields.length === 0) {
+    throw new Error("No supported update fields were provided.");
+  }
+
+  const values = fields.map((field) => data[field]);
+
+  const assignments = fields.map(
+    (field, index) => `${columns[field]} = $${index + 1}`,
+  );
+
+  values.push(id);
 
   const query = `
-    UPDATE classes 
-    SET name = COALESCE($1, name),
-        description = COALESCE($2, description),
-        start_date = COALESCE($3, start_date),
-        end_date = COALESCE($4, end_date),
-        mentor_id = COALESCE($5, mentor_id),
-        status = COALESCE($6, status),
+    UPDATE classes
+    SET ${assignments.join(", ")},
         updated_at = CURRENT_TIMESTAMP
-    WHERE id = $7
-    RETURNING id, name, description, status, start_date, end_date, mentor_id, created_at, updated_at
+    WHERE id = $${values.length}
+    RETURNING id, name, description, status,
+              start_date, end_date, mentor_id,
+              created_at, updated_at
   `;
 
-  const { rows } = await pool.query(query, [
-    name ?? null,
-    description ?? null,
-    finalStartDate ?? null,
-    finalEndDate ?? null,
-    finalMentorId ?? null,
-    status ?? null,
-    id,
-  ]);
+  const { rows } = await pool.query(query, values);
 
-  if (rows.length === 0) return null;
-
-  // Nếu muốn trả về kèm mentor_name (LEFT JOIN), dùng: return await findById(id);
-  // Nếu chỉ cần dữ liệu class vừa cập nhật:
-  return rows[0];
+  return rows[0] ?? null;
 };
 
 // 6. Xóa lớp học (Admin)
@@ -134,6 +128,18 @@ export const isMemberOrMentorOfClass = async (classId, userId) => {
 export const isMentorOfClass = async (classId, mentorId) => {
   const query = "SELECT id FROM classes WHERE id = $1 AND mentor_id = $2";
   const { rows } = await pool.query(query, [classId, mentorId]);
+  return rows.length > 0;
+};
+
+// Kiểm tra học viên (Member) có nằm trong lớp học hay không
+export const isMemberOfClass = async (classId, memberId) => {
+  const query = `
+    SELECT 1 
+    FROM class_members 
+    WHERE class_id = $1 AND member_id = $2
+    LIMIT 1
+  `;
+  const { rows } = await pool.query(query, [classId, memberId]);
   return rows.length > 0;
 };
 
