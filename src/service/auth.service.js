@@ -53,7 +53,6 @@ export const login = async ({ email, password }) => {
 
   // 4. Ký phát hành cả Access Token và Refresh Token
   const accessToken = generateToken(tokenPayload);
-  const refreshToken = generateRefreshToken(tokenPayload);
 
   // 5. Trả về thông tin cơ bản kèm token
   return {
@@ -64,7 +63,6 @@ export const login = async ({ email, password }) => {
       role: user.role,
     },
     accessToken,
-    refreshToken,
   };
 };
 

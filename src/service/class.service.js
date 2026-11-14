@@ -9,10 +9,6 @@ import {
 import { ROLES } from "../core/constants.js";
 import { parsePositiveInt, parseDateOnly } from "../utils/validators.js";
 import { formatStoredDate } from "../utils/date.helper.js";
-import {
-  validateClassDescription,
-  validateClassStatus,
-} from "../middleware/validate.js";
 
 //kiểm tra ngày hợp lệ và ngày kết thúc không trước ngày bắt đầu
 const assertValidDateRange = (startDate, endDate) => {
@@ -102,7 +98,7 @@ export const getClassesByRole = async (user) => {
   if (user.role === ROLES.ADMIN) {
     return classRepository.findAllClassesForAdmin();
   }
-
+  
   return classRepository.findClassesForMember(user.id);
 };
 
