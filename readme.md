@@ -151,11 +151,19 @@ docker push phancam/btck:latest
 
 # 2. Pull và Run Container (trên máy chủ AWS EC2)
 docker pull phancam/btck:latest
-docker run -d \
+docker rm -f backend_ck
+  docker run -d \
   --name backend_ck \
   -p 3001:3000 \
   --restart unless-stopped \
-  --env-file .env \
+  -e PORT=3000 \
+  -e NODE_ENV=production \
+  -e PGSSLMODE=require \
+  -e DATABASE_URL="postgresql://neondb_owner:npg_fN5zV9KUQCvE@ep-purple-sunset-b5hztnvr-pooler.c-7.us-east-2.aws.neon.tech/edumotion?sslmode=require" \
+  -e JWT_SECRET=sgroup_super_secret_jwt_training_key_2026 \
+  -e JWT_EXPIRES_IN=1d \
+  -e JWT_REFRESH_SECRET=refresh_secret_key_123456 \
+  -e JWT_REFRESH_EXPIRES_IN=7d \
   phancam/btck:latest
 ```
 
