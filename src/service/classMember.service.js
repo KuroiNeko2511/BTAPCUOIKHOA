@@ -1,126 +1,94 @@
-import * as classRepository from "../repository/class.repository.js";
 import * as classMemberRepository from "../repository/classMember.repository.js";
+import * as classRepository from "../repository/class.repository.js";
 import * as userRepository from "../repository/user.repository.js";
-import { NotFoundError } from "../core/error.response.js";
-
-
-const parseId = (value) => {
-  const id = Number(value);
-
-  if (!Number.isSafeInteger(id) || id <= 0) {
-    throw new BadRequestError("ID phải là số nguyên dương");
-  }
-
-  return id;
-}
-const checkClassExists = async (classId) => {
-  const existingClass = await classRepository.findById(classId);
-  return existingClass;
-};
-
-const getClass = async (id) => {
-  const { rows } = await pool.query(
-    "SELECT id, mentor_id FROM classes WHERE id = $1",
-    [id],
-  );
-
-  if (!rows[0]) {
-    throw new NotFoundError("Class not found");
-  }
-
-  const user = await userRepository.findById(memberId);
-  if (!user || !user.is_active) {
-    throw new NotFoundError("User not found or is inactive");
-  }
-
-  if (user.role !== "MEMBER") {
-    throw new BadRequestError("Chỉ được thêm user có role MEMBER");
-  }
-
-  const alreadyMember = await classMemberRepository.findMemberInClass(
-    classId,
-    memberId,
-  );
-  if (alreadyMember) {
-    const error = new Error("Member is already enrolled in this class");
-    error.statusCode = 409; // Conflict
-    throw error;
-  }
-
-  await classMemberRepository.addMember(classId, memberId);
-  return { classId, memberId, message: "Member added successfully" };
-};
+import { ROLES } from "../core/constants.js";
+import {
+  BadRequestError,
+  NotFoundError,
+  ConflictError,
+  ForbiddenError,
+} from "../core/error.response.js";
 
 export const addMemberToClass = async (classId, memberId) => {
+  const clsId = Number(classId);
+  const memId = Number(memberId);
+
   // 1. Kiểm tra lớp học tồn tại
-  const existingClass = await checkClassExists(classId);
+  const existingClass = await classRepository.findById(clsId);
   if (!existingClass) {
-    const error = new Error("Class not found");
-    error.statusCode = 404;
-    throw error;
+    throw new NotFoundError("Class not found.");
   }
 
-  const user = await userRepository.findById(memberId);
+  // 2. Chặn thêm chính Mentor của lớp vào làm học viên
+  if (Number(existingClass.mentor_id) === memId) {
+    throw new BadRequestError(
+      "Cannot add the class mentor as a student member.",
+    );
+  }
+
+  // 3. Kiểm tra user tồn tại, đang hoạt động và có role MEMBER
+  const user = await userRepository.findById(memId);
   if (!user || !user.is_active) {
-    const error = new Error("User not found or is inactive");
-    error.statusCode = 404;
-    throw error;
+    throw new NotFoundError("User not found or is inactive.");
   }
 
+  if (user.role !== ROLES.MEMBER) {
+    throw new BadRequestError(
+      "Only users with MEMBER role can be enrolled in a class.",
+    );
+  }
+
+  // 4. Chống thêm trùng thành viên vào cùng một lớp
   const alreadyMember = await classMemberRepository.findMemberInClass(
-    classId,
-    memberId,
+    clsId,
+    memId,
   );
   if (alreadyMember) {
-    const error = new Error("Member is already enrolled in this class");
-    error.statusCode = 409; // Conflict
-    throw error;
+    throw new ConflictError("Member is already enrolled in this class.");
   }
-
-  await classMemberRepository.addMember(classId, memberId);
-  return { classId, memberId, message: "Member added successfully" };
+  await classMemberRepository.addMember(clsId, memId);
+  return { classId: clsId, memberId: memId };
 };
 
-export const getMembersByClass = async (classId, currentUser) => {
-  // 1. Kiểm tra lớp học có tồn tại hay không
-  const foundClass = await classRepository.findById(classId);
-  if (!foundClass) {
-    throw new NotFoundError("Lớp học không tồn tại!");
+export const getMembersByClass = async (classId, user) => {
+  const clsId = Number(classId);
+  const existingClass = await classRepository.findById(clsId);
+  if (!existingClass) {
+    throw new NotFoundError("Class not found.");
   }
 
-  // 2. Kiểm tra quyền truy cập nếu không phải ADMIN
-  if (currentUser.role !== "ADMIN") {
-    const isMentor = foundClass.mentor_id === currentUser.id;
-    const isMember = await classMemberRepository.isUserInClass(
-      classId,
-      currentUser.id,
+  if (user.role !== ROLES.ADMIN) {
+    const hasAccess = await classRepository.isMemberOrMentorOfClass(
+      clsId,
+      user.id,
     );
-
-    if (!isMentor && !isMember) {
+    if (!hasAccess) {
       throw new ForbiddenError(
-        "Bạn không có quyền xem danh sách thành viên của lớp học này!",
+        "Access denied. You do not belong to this class.",
       );
     }
   }
 
-  // 3. Hợp lệ -> Trả về danh sách thành viên
-  return await classMemberRepository.getMembersByClassId(classId);
+  return classMemberRepository.getMembersByClassId(clsId);
 };
 
 export const removeMemberFromClass = async (classId, memberId) => {
-  classId = parseId(classId);
-  memberId = parseId(memberId);
+  const clsId = Number(classId);
+  const memId = Number(memberId);
 
-  const existingEnrollment = await classMemberRepository.findMemberInClass(
-    classId,
-    memberId,
-  );
-  if (!existingEnrollment) {
-    const error = new Error("Member not found in this class");
-    error.statusCode = 404;
-    throw error;
+  const existingClass = await classRepository.findById(clsId);
+  if (!existingClass) {
+    throw new NotFoundError("Class not found.");
   }
 
-  await classMemberRepository.removeMember(classId, memberId);
-  return { message: "Member removed from class successfully" };
+  const alreadyMember = await classMemberRepository.findMemberInClass(
+    clsId,
+    memId,
+  );
+  if (!alreadyMember) {
+    throw new NotFoundError("Member is not enrolled in this class.");
+  }
+
+  await classMemberRepository.removeMember(clsId, memId);
+  return { classId: clsId, memberId: memId };
 };

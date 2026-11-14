@@ -6,27 +6,18 @@ export const addMember = catchAsync(async (req, res) => {
   const { id: classId } = req.params;
   const { memberId } = req.body;
 
-  if (!memberId) {
-    return res
-      .status(400)
-      .json({ success: false, message: "memberId is required" });
-  }
-
   const result = await classMemberService.addMemberToClass(classId, memberId);
-  return sendSuccess(res, 201, "Member added to class successfully", result);
+  return sendSuccess(res, 201, "Member added to class successfully.", result);
 });
 
 export const getMembers = catchAsync(async (req, res) => {
   const { id: classId } = req.params;
   const members = await classMemberService.getMembersByClass(classId, req.user);
-  return sendSuccess(res, 201, "Member added to class successfully", members);
+  return sendSuccess(res, 200, "Class members retrieved successfully.", members);
 });
 
 export const removeMember = catchAsync(async (req, res) => {
   const { id: classId, memberId } = req.params;
-  const result = await classMemberService.removeMemberFromClass(
-    classId,
-    memberId,
-  );
-  return sendSuccess(res, 201, "Member added to class successfully", result);
+  const result = await classMemberService.removeMemberFromClass(classId, memberId);
+  return sendSuccess(res, 200, "Member removed from class successfully.", result);
 });

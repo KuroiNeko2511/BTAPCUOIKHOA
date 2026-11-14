@@ -6,22 +6,6 @@ import {
 } from "../core/error.response.js";
 import { hashPassword } from "../utils/password.helper.js";
 
-// Helper kiểm tra và chuẩn hóa ID số nguyên dương
-const parseUserId = (userId) => {
-  const parsedId = Number(userId);
-
-  if (
-    !userId ||
-    isNaN(parsedId) ||
-    !Number.isInteger(parsedId) ||
-    parsedId <= 0
-  ) {
-    throw new BadRequestError("User ID must be a valid positive integer"); // Trả về 400
-  }
-
-  return parsedId;
-};
-
 // 1. Lấy danh sách users
 export const getAllUsers = async (query) => {
   return await userRepository.findAll(query || {});
@@ -29,8 +13,7 @@ export const getAllUsers = async (query) => {
 
 // 2. Lấy thông tin user theo ID
 export const getUserById = async (userId) => {
-  const id = parseUserId(userId);
-  const user = await userRepository.findById(id);
+  const user = await userRepository.findById(userId);
 
   if (!user) {
     throw new NotFoundError("User not found");
@@ -67,9 +50,7 @@ export const createUser = async ({ name, email, password, role }) => {
 
 // 4. Cập nhật thông tin user
 export const updateUser = async (userId, updateData) => {
-  const id = parseUserId(userId);
-
-  const existingUser = await userRepository.findById(id);
+  const existingUser = await userRepository.findById(userId);
   if (!existingUser) {
     throw new NotFoundError("User not found");
   }
@@ -102,9 +83,7 @@ export const updateUser = async (userId, updateData) => {
 
 // 5. Xóa mềm user
 export const deleteUser = async (userId) => {
-  const id = parseUserId(userId);
-
-  const existingUser = await userRepository.findById(id);
+  const existingUser = await userRepository.findById(userId);
   if (!existingUser) {
     throw new NotFoundError("User not found");
   }

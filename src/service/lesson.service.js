@@ -7,13 +7,8 @@ import {
   ConflictError,
   BadRequestError,
 } from "../core/error.response.js";
-import {
-  validateLessonOrderIndex,
-  validateLessonTitle,
-  validateLessonContent,
-} from "../middleware/validate.js";
 
-// Hàm hỗ trợ lọc field update
+// Hàm hỗ trợ lọc field update hợp lệ
 const pickLessonUpdates = (data) => {
   if (!data || typeof data !== "object" || Array.isArray(data)) {
     throw new BadRequestError("Please check your information and try again.");
@@ -32,23 +27,22 @@ const pickLessonUpdates = (data) => {
 // 1. Tạo bài học (Chỉ Admin hoặc Mentor của lớp)
 export const createLesson = async (data, user) => {
   const classId = parsePositiveInt(data.classId, "Class ID");
-  const title = validateLessonTitle(data.title);
-  const content = validateLessonContent(data.content);
-  const orderIndex = validateLessonOrderIndex(data.orderIndex);
 
   const classInfo = await classRepository.findById(classId);
   if (!classInfo) throw new NotFoundError("Class not found.");
 
   if (user.role !== "ADMIN") {
     const isMentor = await classRepository.isMentorOfClass(classId, user.id);
-    if (!isMentor) throw new ForbiddenError("Chỉ Mentor của lớp mới được tạo bài học!");
+    if (!isMentor) {
+      throw new ForbiddenError("Chỉ Mentor của lớp mới được tạo bài học!");
+    }
   }
 
   return lessonRepository.createLesson({
     classId,
-    title,
-    content,
-    orderIndex,
+    title: data.title?.trim(),
+    content: data.content,
+    orderIndex: data.orderIndex,
     createdBy: user.id,
   });
 };
@@ -61,7 +55,9 @@ export const getLessonsByClass = async (classId, user) => {
 
   if (user.role !== "ADMIN") {
     const hasAccess = await classRepository.isMemberOrMentorOfClass(id, user.id);
-    if (!hasAccess) throw new ForbiddenError("Bạn không thuộc lớp học này!");
+    if (!hasAccess) {
+      throw new ForbiddenError("Bạn không thuộc lớp học này!");
+    }
   }
 
   return lessonRepository.findLessonsByClassId(id);
@@ -74,8 +70,13 @@ export const getLessonById = async (lessonId, user) => {
   if (!lesson) throw new NotFoundError("Lesson not found!");
 
   if (user.role !== "ADMIN") {
-    const hasAccess = await classRepository.isMemberOrMentorOfClass(lesson.class_id, user.id);
-    if (!hasAccess) throw new ForbiddenError("Bạn không thuộc lớp học này!");
+    const hasAccess = await classRepository.isMemberOrMentorOfClass(
+      lesson.class_id,
+      user.id
+    );
+    if (!hasAccess) {
+      throw new ForbiddenError("Bạn không thuộc lớp học này!");
+    }
   }
 
   return lesson;
@@ -88,14 +89,19 @@ export const updateLesson = async (lessonId, data, user) => {
   if (!lesson) throw new NotFoundError("Lesson not found!");
 
   if (user.role !== "ADMIN") {
-    const isMentor = await classRepository.isMentorOfClass(lesson.class_id, user.id);
-    if (!isMentor) throw new ForbiddenError("Chỉ Mentor của lớp mới được sửa bài học!");
+    const isMentor = await classRepository.isMentorOfClass(
+      lesson.class_id,
+      user.id
+    );
+    if (!isMentor) {
+      throw new ForbiddenError("Chỉ Mentor của lớp mới được sửa bài học!");
+    }
   }
 
   const updateData = pickLessonUpdates(data);
-  if (updateData.title !== undefined) updateData.title = validateLessonTitle(updateData.title);
-  if (updateData.content !== undefined) updateData.content = validateLessonContent(updateData.content);
-  if (updateData.orderIndex !== undefined) updateData.orderIndex = validateLessonOrderIndex(updateData.orderIndex);
+  if (updateData.title !== undefined) {
+    updateData.title = updateData.title.trim();
+  }
 
   if (Object.keys(updateData).length === 0) {
     throw new BadRequestError("No valid fields to update!");
@@ -111,23 +117,32 @@ export const deleteLesson = async (lessonId, user) => {
   if (!lesson) throw new NotFoundError("Lesson not found!");
 
   if (user.role !== "ADMIN") {
-    const isMentor = await classRepository.isMentorOfClass(lesson.class_id, user.id);
-    if (!isMentor) throw new ForbiddenError("Chỉ Mentor của lớp mới được xóa bài học!");
+    const isMentor = await classRepository.isMentorOfClass(
+      lesson.class_id,
+      user.id
+    );
+    if (!isMentor) {
+      throw new ForbiddenError("Chỉ Mentor của lớp mới được xóa bài học!");
+    }
   }
 
   return lessonRepository.deleteLesson(id);
 };
 
-// 6. Đánh dấu hoàn thành bài học (Trỏ từ lessonId -> lesson.class_id để check thành viên lớp)
+// 6. Đánh dấu hoàn thành bài học (Chỉ học viên thuộc lớp chứa bài học đó)
 export const completeLesson = async (lessonId, user) => {
   const id = parsePositiveInt(lessonId, "Lesson ID");
   const lesson = await lessonRepository.findLessonById(id);
   if (!lesson) throw new NotFoundError("Lesson not found!");
 
-  // Chỉ kiểm tra học viên thực sự tham gia lớp (bỏ qua Mentor và Admin)
-  const isMember = await classRepository.isMemberOfClass(lesson.class_id, user.id);
+  const isMember = await classRepository.isMemberOfClass(
+    lesson.class_id,
+    user.id
+  );
   if (!isMember) {
-    throw new ForbiddenError("Chỉ học viên thuộc lớp học này mới được đánh dấu hoàn thành bài học!");
+    throw new ForbiddenError(
+      "Chỉ học viên thuộc lớp học này mới được đánh dấu hoàn thành bài học!"
+    );
   }
 
   const progress = await lessonRepository.markCompleted(id, user.id);
@@ -149,7 +164,9 @@ export const getClassProgress = async (classId, user) => {
 
   if (user.role !== "ADMIN") {
     const hasAccess = await classRepository.isMemberOrMentorOfClass(id, user.id);
-    if (!hasAccess) throw new ForbiddenError("Bạn không thuộc lớp học này!");
+    if (!hasAccess) {
+      throw new ForbiddenError("Bạn không thuộc lớp học này!");
+    }
   }
 
   const stats = await lessonRepository.getProgressStats(id, user.id);

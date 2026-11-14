@@ -36,15 +36,6 @@ export const parsePositiveInt = (value, fieldName) => {
   return number;
 };
 
-export const userIdParamRules = [
-  param("id")
-    .trim()
-    .notEmpty()
-    .withMessage("User ID is required")
-    .custom((value) => parsePositiveInt(value, "User ID"))
-    .withMessage("User ID must be a positive integer"),
-];
-
 export const createUserRules = [
   body("name")
     .trim()
@@ -155,70 +146,213 @@ export const validateClassDescription = (description) => {
   return description.trim();
 };
 
-export const validateClassStatus = (status) => {
-  if (status === undefined) {
-    return status;
-  }
+// 1. PARAMS RULES (Kiểm tra ID trên URL cho tất cả route)
+export const idParamRules = (paramName = "id", label = "ID") => [
+  param(paramName)
+    .trim()
+    .notEmpty()
+    .withMessage(`${label} is required`)
+    .custom((value) => parsePositiveInt(value, label)),
+];
 
-  const allowedStatuses = [
-    "UPCOMING",
-    "ONGOING",
-    "COMPLETED",
-  ];
+// 2. CLASS & CLASS MEMBER RULES
+export const createClassRules = [
+  body("name")
+    .trim()
+    .notEmpty()
+    .withMessage("Class name is required")
+    .isLength({ min: 2, max: 150 })
+    .withMessage("Class name must be between 2 and 150 characters"),
 
-  if (!allowedStatuses.includes(status)) {
-    throw new BadRequestError(
-      "status must be UPCOMING, ONGOING, or COMPLETED.",
-    );
-  }
+  body("description")
+    .optional({ nullable: true })
+    .isString()
+    .withMessage("Description must be a string"),
 
-  return status;
-};
-// validateLessonOrderIndex: kiểm tra số nguyên dương 32-bit của bài học
-export const validateLessonOrderIndex = (orderIndex) => {
-  if (orderIndex === undefined) {
-    return undefined;
-  }
+  body("startDate")
+    .optional({ nullable: true })
+    .isISO8601()
+    .withMessage("startDate must be a valid date (YYYY-MM-DD)"),
 
-  if (
-    !Number.isInteger(orderIndex) ||
-    orderIndex <= 0 ||
-    orderIndex > 2147483647
-  ) {
-    throw new BadRequestError(
-      "orderIndex must be a positive 32-bit integer.",
-    );
-  }
+  body("endDate")
+    .optional({ nullable: true })
+    .isISO8601()
+    .withMessage("endDate must be a valid date (YYYY-MM-DD)")
+    .custom((endDate, { req }) => {
+      if (req.body.startDate && new Date(endDate) < new Date(req.body.startDate)) {
+        throw new Error("endDate must be greater than or equal to startDate");
+      }
+      return true;
+    }),
 
-  return orderIndex;
-};
+  body("mentorId")
+    .notEmpty()
+    .withMessage("mentorId is required")
+    .custom((value) => parsePositiveInt(value, "mentorId")),
+];
 
-export const validateLessonTitle = (title) => {
-  if (typeof title !== "string") {
-    throw new BadRequestError("title must be a string.");
-  }
+export const updateClassRules = [
+  body("name")
+    .optional()
+    .trim()
+    .notEmpty()
+    .withMessage("Class name cannot be empty")
+    .isLength({ min: 2, max: 150 })
+    .withMessage("Class name must be between 2 and 150 characters"),
 
-  const normalizedTitle = title.trim();
+  body("description")
+    .optional({ nullable: true })
+    .isString()
+    .withMessage("Description must be a string"),
 
-  if (normalizedTitle.length === 0 || normalizedTitle.length > 200) {
-    throw new BadRequestError(
-      "title must contain between 1 and 200 characters.",
-    );
-  }
+  body("status")
+    .optional()
+    .isIn(["UPCOMING", "ONGOING", "COMPLETED"])
+    .withMessage("status must be UPCOMING, ONGOING, or COMPLETED"),
 
-  return normalizedTitle;
-};
+  body("startDate")
+    .optional({ nullable: true })
+    .isISO8601()
+    .withMessage("startDate must be a valid date"),
 
-export const validateLessonContent = (content) => {
-  if (content === undefined || content === null) {
-    return content;
-  }
+  body("endDate")
+    .optional({ nullable: true })
+    .isISO8601()
+    .withMessage("endDate must be a valid date"),
 
-  if (typeof content !== "string") {
-    throw new BadRequestError(
-      "content must be a string or null.",
-    );
-  }
+  body("mentorId")
+    .optional()
+    .custom((value) => parsePositiveInt(value, "mentorId")),
+];
 
-  return content;
-};
+export const addClassMemberRules = [
+  body("memberId")
+    .notEmpty()
+    .withMessage("memberId is required")
+    .custom((value) => parsePositiveInt(value, "memberId")),
+];
+
+// 3. LESSON RULES
+export const createLessonRules = [
+  body("title")
+    .trim()
+    .notEmpty()
+    .withMessage("Lesson title is required")
+    .isLength({ min: 1, max: 200 })
+    .withMessage("Title must be between 1 and 200 characters"),
+
+  body("content")
+    .optional({ nullable: true })
+    .isString()
+    .withMessage("Content must be a string"),
+
+  body("orderIndex")
+    .optional()
+    .isInt({ min: 1, max: 2147483647 })
+    .withMessage("orderIndex must be a positive integer"),
+];
+
+export const updateLessonRules = [
+  body("title")
+    .optional()
+    .trim()
+    .notEmpty()
+    .withMessage("Lesson title cannot be empty")
+    .isLength({ min: 1, max: 200 })
+    .withMessage("Title must be between 1 and 200 characters"),
+
+  body("content")
+    .optional({ nullable: true })
+    .isString()
+    .withMessage("Content must be a string"),
+
+  body("orderIndex")
+    .optional()
+    .isInt({ min: 1, max: 2147483647 })
+    .withMessage("orderIndex must be a positive integer"),
+];
+
+// 4. ASSIGNMENT & SUBMISSION RULES (Bắt buộc có Score Validation)
+export const createAssignmentRules = [
+  body("title")
+    .trim()
+    .notEmpty()
+    .withMessage("Assignment title is required")
+    .isLength({ min: 1, max: 200 })
+    .withMessage("Title must be between 1 and 200 characters"),
+
+  body("description")
+    .optional({ nullable: true })
+    .isString()
+    .withMessage("Description must be a string"),
+
+  body("deadline")
+    .optional({ nullable: true })
+    .isISO8601()
+    .withMessage("Deadline must be a valid ISO 8601 datetime"),
+
+  body("maximumScore")
+    .optional()
+    .isFloat({ gt: 0 })
+    .withMessage("maximumScore must be greater than 0"),
+];
+
+export const updateAssignmentRules = [
+  body("title")
+    .optional()
+    .trim()
+    .notEmpty()
+    .withMessage("Assignment title cannot be empty")
+    .isLength({ min: 1, max: 200 })
+    .withMessage("Title must be between 1 and 200 characters"),
+
+  body("description")
+    .optional({ nullable: true })
+    .isString()
+    .withMessage("Description must be a string"),
+
+  body("deadline")
+    .optional({ nullable: true })
+    .isISO8601()
+    .withMessage("Deadline must be a valid ISO 8601 datetime"),
+
+  body("maximumScore")
+    .optional()
+    .isFloat({ gt: 0 })
+    .withMessage("maximumScore must be greater than 0"),
+];
+
+export const submitAssignmentRules = [
+  body().custom((value, { req }) => {
+    const hasContent = req.body.content && String(req.body.content).trim().length > 0;
+    const hasRepoUrl = req.body.repositoryUrl && String(req.body.repositoryUrl).trim().length > 0;
+    if (!hasContent && !hasRepoUrl) {
+      throw new Error("Either content or repositoryUrl must be provided");
+    }
+    return true;
+  }),
+
+  body("content")
+    .optional({ nullable: true })
+    .isString()
+    .withMessage("Content must be a string"),
+
+  body("repositoryUrl")
+    .optional({ nullable: true })
+    .trim()
+    .isURL()
+    .withMessage("repositoryUrl must be a valid URL"),
+];
+
+export const reviewSubmissionRules = [
+  body("score")
+    .notEmpty()
+    .withMessage("Score is required")
+    .isFloat({ min: 0 })
+    .withMessage("Score must be a number greater than or equal to 0"),
+
+  body("feedback")
+    .optional({ nullable: true })
+    .isString()
+    .withMessage("Feedback must be a string"),
+];
