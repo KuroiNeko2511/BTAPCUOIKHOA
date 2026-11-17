@@ -54,7 +54,7 @@ export const completeLesson = catchAsync(async (req, res) => {
     req.user,
   );
 
-  return sendSuccess(res, 200, result.message);
+  return sendSuccess(res, 200, result.message, result.data);
 });
 //getClassProgress: dùng để đánh giá tiến độ học tập của học sinh trong 1 lớp
 export const getClassProgress = catchAsync(async (req, res) => {

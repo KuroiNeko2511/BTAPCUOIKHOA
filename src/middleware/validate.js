@@ -220,5 +220,142 @@ export const validateLessonContent = (content) => {
     );
   }
 
+<<<<<<< Updated upstream
   return content;
 };
+=======
+export const addClassMemberRules = [
+  body("memberId")
+    .notEmpty()
+    .withMessage("memberId is required")
+    .custom((value) => parsePositiveInt(value, "memberId")),
+];
+
+// 3. LESSON RULES
+export const createLessonRules = [
+  body("title")
+    .trim()
+    .notEmpty()
+    .withMessage("Lesson title is required")
+    .isLength({ min: 1, max: 200 })
+    .withMessage("Title must be between 1 and 200 characters"),
+
+  body("content")
+    .optional({ nullable: true })
+    .isString()
+    .withMessage("Content must be a string"),
+
+  body("orderIndex")
+    .optional()
+    .isInt({ min: 1, max: 2147483647 })
+    .withMessage("orderIndex must be a positive integer"),
+];
+
+export const updateLessonRules = [
+  body("title")
+    .optional()
+    .trim()
+    .notEmpty()
+    .withMessage("Lesson title cannot be empty")
+    .isLength({ min: 1, max: 200 })
+    .withMessage("Title must be between 1 and 200 characters"),
+
+  body("content")
+    .optional({ nullable: true })
+    .isString()
+    .withMessage("Content must be a string"),
+
+  body("orderIndex")
+    .optional()
+    .isInt({ min: 1, max: 2147483647 })
+    .withMessage("orderIndex must be a positive integer"),
+];
+
+// 4. ASSIGNMENT & SUBMISSION RULES (Bắt buộc có Score Validation)
+export const createAssignmentRules = [
+  body("title")
+    .trim()
+    .notEmpty()
+    .withMessage("Assignment title is required")
+    .isLength({ min: 1, max: 200 })
+    .withMessage("Title must be between 1 and 200 characters"),
+
+  body("description")
+    .optional({ nullable: true })
+    .isString()
+    .withMessage("Description must be a string"),
+
+  body("deadline")
+    .optional({ nullable: true })
+    .isISO8601()
+    .withMessage("Deadline must be a valid ISO 8601 datetime"),
+
+  body("maximumScore")
+    .optional()
+    .isFloat({ gt: 0 })
+    .withMessage("maximumScore must be greater than 0"),
+];
+
+export const updateAssignmentRules = [
+  body("title")
+    .optional()
+    .trim()
+    .notEmpty()
+    .withMessage("Assignment title cannot be empty")
+    .isLength({ min: 1, max: 200 })
+    .withMessage("Title must be between 1 and 200 characters"),
+
+  body("description")
+    .optional({ nullable: true })
+    .isString()
+    .withMessage("Description must be a string"),
+
+  body("deadline")
+    .optional({ nullable: true })
+    .isISO8601()
+    .withMessage("Deadline must be a valid ISO 8601 datetime"),
+
+  body("maximumScore")
+    .optional()
+    .isFloat({ gt: 0 })
+    .withMessage("maximumScore must be greater than 0"),
+];
+
+export const submitAssignmentRules = [
+  body().custom((value) => {
+    const hasContent = typeof value?.content === "string" && value.content.trim();
+    const hasRepoUrl = typeof value?.repositoryUrl === "string" && value.repositoryUrl.trim();
+    if (!hasContent && !hasRepoUrl) {
+      throw new Error("Either content or repositoryUrl must be provided");
+    }
+    return true;
+  }),
+
+  body("content")
+    .optional({ nullable: true })
+    .isString()
+    .withMessage("Content must be a string"),
+
+  body("repositoryUrl")
+    .optional({ nullable: true })
+    .isString()
+    .withMessage("repositoryUrl must be a string")
+    .bail()
+    .trim()
+    .isURL({ protocols: ["http", "https"], require_protocol: true })
+    .withMessage("repositoryUrl must be a valid URL"),
+];
+
+export const reviewSubmissionRules = [
+  body("score")
+    .notEmpty()
+    .withMessage("Score is required")
+    .isFloat({ min: 0 })
+    .withMessage("Score must be a number greater than or equal to 0"),
+
+  body("feedback")
+    .optional({ nullable: true })
+    .isString()
+    .withMessage("Feedback must be a string"),
+];
+>>>>>>> Stashed changes

@@ -9,10 +9,16 @@ import {
 import { ROLES } from "../core/constants.js";
 import { parsePositiveInt, parseDateOnly } from "../utils/validators.js";
 import { formatStoredDate } from "../utils/date.helper.js";
+<<<<<<< Updated upstream
 import {
   validateClassDescription,
   validateClassStatus,
 } from "../middleware/validate.js";
+=======
+import { validateClassDescription } from "../middleware/validate.js";
+
+const classStatuses = new Set(["UPCOMING", "ONGOING", "COMPLETED"]);
+>>>>>>> Stashed changes
 
 //kiểm tra ngày hợp lệ và ngày kết thúc không trước ngày bắt đầu
 const assertValidDateRange = (startDate, endDate) => {
@@ -199,7 +205,9 @@ export const updateExistingClass = async (classId, updateData) => {
 
   const data = { ...updateData };
   data.description = validateClassDescription(data.description);
-  data.status = validateClassStatus(data.status);
+  if (data.status !== undefined && !classStatuses.has(data.status)) {
+    throw new BadRequestError("status must be UPCOMING, ONGOING, or COMPLETED.");
+  }
   if (data.mentorId !== undefined) {
     data.mentorId = parsePositiveInt(data.mentorId, "mentorId");
 

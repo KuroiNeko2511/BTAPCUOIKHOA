@@ -37,14 +37,34 @@
                 type: string
               description:
                 type: string
+                nullable: true
               maximumScore:
                 type: number
-              dueDate:
+                minimum: 0.01
+                maximum: 999.99
+                example: 10
+              deadline:
                 type: string
+                nullable: true
                 format: date-time
     responses:
       "201":
         description: Tạo thành công
+        content:
+          application/json:
+            example:
+              success: true
+              message: Assignment created successfully.
+              data:
+                id: 1
+                class_id: 1
+                title: Xây dựng REST API
+                description: null
+                deadline: null
+                maximum_score: "10.00"
+                created_at: "2026-11-17T08:30:00.000Z"
+                updated_at: "2026-11-17T08:30:00.000Z"
+                is_closed: false
 
 /assignments/{id}:
   get:
@@ -76,6 +96,7 @@
         schema:
           type: integer
     requestBody:
+      required: true
       content:
         application/json:
           schema:
@@ -85,16 +106,21 @@
                 type: string
               description:
                 type: string
+                nullable: true
               maximumScore:
                 type: number
-              dueDate:
+                minimum: 0.01
+                maximum: 999.99
+                example: 10
+              deadline:
                 type: string
+                nullable: true
                 format: date-time
-              isClosed:
-                type: boolean
     responses:
       "200":
         description: Cập nhật thành công
+      "409":
+        description: Bài tập đã có bài nộp và điểm tối đa không thể thay đổi
 
   delete:
     tags: [Assignments]
@@ -124,19 +150,28 @@
         schema:
           type: integer
     requestBody:
+      required: true
       content:
         application/json:
           schema:
             type: object
+            anyOf:
+              - required: [content]
+              - required: [repositoryUrl]
             properties:
               content:
                 type: string
+                nullable: true
               repositoryUrl:
                 type: string
-                example: https://github.com/user/repo
+                nullable: true
+                format: uri
+                example: https://github.com/example/learning-api
     responses:
       "201":
         description: Nộp bài thành công
+      "400":
+        description: Quá hạn hoặc nội dung nộp không hợp lệ
       "409":
         description: Đã nộp bài rồi
 
@@ -186,15 +221,20 @@
         schema:
           type: integer
     requestBody:
+      required: true
       content:
         application/json:
           schema:
             type: object
+            required: [score]
             properties:
               score:
                 type: number
+                minimum: 0
+                example: 8.5
               feedback:
                 type: string
+                nullable: true
     responses:
       "200":
         description: Chấm điểm thành công

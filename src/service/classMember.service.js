@@ -11,11 +11,38 @@ const parseId = (value) => {
     throw new BadRequestError("ID phải là số nguyên dương");
   }
 
+<<<<<<< Updated upstream
   return id;
 }
 const checkClassExists = async (classId) => {
   const existingClass = await classRepository.findById(classId);
   return existingClass;
+=======
+  // 2. Chặn thêm chính Mentor của lớp vào làm học viên
+  if (Number(existingClass.mentor_id) === memId) {
+    throw new BadRequestError(
+      "Cannot add the class mentor as a student member.",
+    );
+  }
+
+  // 3. Kiểm tra user tồn tại, đang hoạt động và có role MEMBER
+  const user = await userRepository.findById(memId);
+  if (!user || !user.is_active) {
+    throw new NotFoundError("User not found or is inactive.");
+  }
+
+  if (user.role !== ROLES.MEMBER) {
+    throw new BadRequestError(
+      "Only users with MEMBER role can be enrolled in a class.",
+    );
+  }
+
+  // 4. Chống thêm trùng thành viên vào cùng một lớp
+  if (!(await classMemberRepository.addMember(clsId, memId))) {
+    throw new ConflictError("Member is already enrolled in this class.");
+  }
+  return { classId: clsId, memberId: memId };
+>>>>>>> Stashed changes
 };
 
 const getClass = async (id) => {
@@ -111,6 +138,7 @@ export const removeMemberFromClass = async (classId, memberId) => {
   classId = parseId(classId);
   memberId = parseId(memberId);
 
+<<<<<<< Updated upstream
   const existingEnrollment = await classMemberRepository.findMemberInClass(
     classId,
     memberId,
@@ -123,4 +151,15 @@ export const removeMemberFromClass = async (classId, memberId) => {
 
   await classMemberRepository.removeMember(classId, memberId);
   return { message: "Member removed from class successfully" };
+=======
+  const existingClass = await classRepository.findById(clsId);
+  if (!existingClass) {
+    throw new NotFoundError("Class not found.");
+  }
+
+  if (!(await classMemberRepository.removeMember(clsId, memId))) {
+    throw new NotFoundError("Member is not enrolled in this class.");
+  }
+  return { classId: clsId, memberId: memId };
+>>>>>>> Stashed changes
 };

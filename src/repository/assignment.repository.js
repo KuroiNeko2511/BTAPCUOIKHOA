@@ -27,7 +27,10 @@ export const isClassMember = async (classId, memberId) => {
 
 export const listAssignments = async (classId) => {
   const { rows } = await pool.query(
-    `SELECT * FROM assignments
+    `SELECT id, class_id, title, description,
+            deadline AT TIME ZONE 'UTC' AS deadline,
+            maximum_score, created_at, updated_at
+     FROM assignments
      WHERE class_id = $1
      ORDER BY created_at DESC, id DESC`,
     [classId],
@@ -37,9 +40,11 @@ export const listAssignments = async (classId) => {
 
 export const findAssignment = async (id) => {
   const { rows } = await pool.query(
-    `SELECT a.*,
+    `SELECT a.id, a.class_id, a.title, a.description,
+            a.deadline AT TIME ZONE 'UTC' AS deadline,
+            a.maximum_score, a.created_at, a.updated_at,
             (a.deadline IS NOT NULL
-             AND a.deadline < CURRENT_TIMESTAMP) AS is_closed
+             AND a.deadline < (CURRENT_TIMESTAMP AT TIME ZONE 'UTC')) AS is_closed
      FROM assignments a
      WHERE a.id = $1`,
     [id],
@@ -51,7 +56,7 @@ export const createAssignment = async (classId, data) => {
   const { rows } = await pool.query(
     `INSERT INTO assignments
        (class_id, title, description, deadline, maximum_score)
-     VALUES ($1, $2, $3, $4, $5) RETURNING id`,
+     VALUES ($1, $2, $3, $4::timestamptz AT TIME ZONE 'UTC', $5) RETURNING id`,
     [classId, data.title, data.description, data.deadline, data.maximumScore],
   );
   return findAssignment(rows[0].id);
@@ -70,7 +75,7 @@ export const updateAssignment = async (id, data) => {
     `UPDATE assignments
      SET title = $1,
          description = $2,
-         deadline = $3,
+         deadline = $3::timestamptz AT TIME ZONE 'UTC',
          maximum_score = $4
      WHERE id = $5`,
     [data.title, data.description, data.deadline, data.maximumScore, id],
@@ -87,10 +92,14 @@ export const createSubmission = async (assignmentId, memberId, data) => {
   const { rows } = await pool.query(
     `INSERT INTO submissions
        (assignment_id, member_id, content, repository_url)
-     VALUES ($1, $2, $3, $4) RETURNING id`,
+     SELECT id, $2, $3, $4
+     FROM assignments
+     WHERE id = $1
+       AND (deadline IS NULL OR deadline >= (CURRENT_TIMESTAMP AT TIME ZONE 'UTC'))
+     RETURNING id`,
     [assignmentId, memberId, data.content, data.repositoryUrl],
   );
-  return findSubmission(rows[0].id);
+  return rows.length ? findSubmission(rows[0].id) : null;
 };
 
 export const listSubmissions = async (assignmentId, memberId = null) => {

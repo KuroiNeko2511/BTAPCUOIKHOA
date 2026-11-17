@@ -1,0 +1,31 @@
+services:
+  api:
+    build: .
+    ports:
+      - "127.0.0.1:${API_PORT:-3000}:3000"
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      DATABASE_URL: postgres://learning:learning_local@db:5432/learning
+      JWT_SECRET: "${COMPOSE_JWT_SECRET:-local-swagger-testing-only}"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: learning
+      POSTGRES_USER: learning
+      POSTGRES_PASSWORD: learning_local
+    healthcheck:
+      test: ["CMD", "pg_isready", "-h", "127.0.0.1", "-U", "learning", "-d", "learning"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    volumes:
+      - learning_data:/var/lib/postgresql/data
+      - ./src/database/migration/init_schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+
+volumes:
+  learning_data:

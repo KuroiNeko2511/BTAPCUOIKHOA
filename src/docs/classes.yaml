@@ -19,21 +19,24 @@
         application/json:
           schema:
             type: object
-            required: [name, mentor_id]
+            required: [name, mentorId]
             properties:
               name:
                 type: string
                 example: Lớp NodeJS 01
               description:
                 type: string
-              mentor_id:
+                nullable: true
+              mentorId:
                 type: integer
                 example: 2
-              start_date:
+              startDate:
                 type: string
+                nullable: true
                 format: date
-              end_date:
+              endDate:
                 type: string
+                nullable: true
                 format: date
     responses:
       "201":
@@ -69,6 +72,7 @@
         schema:
           type: integer
     requestBody:
+      required: true
       content:
         application/json:
           schema:
@@ -78,14 +82,20 @@
                 type: string
               description:
                 type: string
-              mentor_id:
+                nullable: true
+              mentorId:
                 type: integer
-              start_date:
+              startDate:
                 type: string
+                nullable: true
                 format: date
-              end_date:
+              endDate:
                 type: string
+                nullable: true
                 format: date
+              status:
+                type: string
+                enum: [UPCOMING, ONGOING, COMPLETED]
     responses:
       "200":
         description: Cập nhật thành công

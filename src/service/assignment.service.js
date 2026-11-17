@@ -260,10 +260,15 @@ export const submitAssignment = async (assignmentId, body, user) => {
   }
 
   try {
-    return await repo.createSubmission(assignment.id, user.id, {
+    const submission = await repo.createSubmission(assignment.id, user.id, {
       content,
       repositoryUrl,
     });
+    if (!submission) {
+      await getAssignment(assignment.id);
+      throw new BadRequestError("Cannot submit assignment because the deadline has passed.");
+    }
+    return submission;
   } catch (error) {
     if (
       error.code === "23505" &&

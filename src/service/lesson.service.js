@@ -26,6 +26,12 @@ const pickLessonUpdates = (data) => {
       updateData[field] = data[field];
     }
   }
+  const unsupportedFields = Object.keys(data).filter(
+    (field) => !allowedFields.includes(field),
+  );
+  if (unsupportedFields.length > 0) {
+    throw new BadRequestError(`Unsupported fields: ${unsupportedFields.join(", ")}.`);
+  }
   return updateData;
 };
 
@@ -39,6 +45,9 @@ export const createLesson = async (data, user) => {
   const classInfo = await classRepository.findById(classId);
   if (!classInfo) throw new NotFoundError("Class not found.");
 
+  const { classId: _classId, ...lessonFields } = data;
+  const lesson = pickLessonUpdates(lessonFields);
+
   if (user.role !== "ADMIN") {
     const isMentor = await classRepository.isMentorOfClass(classId, user.id);
     if (!isMentor) throw new ForbiddenError("Chỉ Mentor của lớp mới được tạo bài học!");
@@ -46,9 +55,15 @@ export const createLesson = async (data, user) => {
 
   return lessonRepository.createLesson({
     classId,
+<<<<<<< Updated upstream
     title,
     content,
     orderIndex,
+=======
+    title: lesson.title?.trim(),
+    content: lesson.content,
+    orderIndex: lesson.orderIndex,
+>>>>>>> Stashed changes
     createdBy: user.id,
   });
 };

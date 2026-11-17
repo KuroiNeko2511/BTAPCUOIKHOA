@@ -2,6 +2,7 @@
   post:
     tags: [Auth]
     summary: Đăng ký tài khoản mới
+    security: []
     requestBody:
       required: true
       content:
@@ -31,6 +32,7 @@
   post:
     tags: [Auth]
     summary: Đăng nhập
+    security: []
     requestBody:
       required: true
       content:
@@ -47,7 +49,7 @@
                 example: "123456"
     responses:
       "200":
-        description: Đăng nhập thành công, trả về token
+        description: Đăng nhập thành công, trả về data.user và data.accessToken
       "401":
         description: Sai email hoặc mật khẩu
 
