@@ -1,0 +1,140 @@
+// S-Group Learning Platform
+// PostgreSQL (Neon Cloud)
+// Source: migration/init_schema.sql
+
+Enum user_role {
+  ADMIN
+  MEMBER
+}
+
+Enum class_status {
+  UPCOMING
+  ONGOING
+  COMPLETED
+}
+
+Table users {
+  id int [pk, increment]
+  name varchar(100)
+  email varchar(255) [unique, not null]
+  password_hash varchar(255) [not null]
+  role user_role [not null, default: 'MEMBER']
+  is_active boolean [not null, default: true, note: 'Soft delete flag']
+  created_at timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at timestamp [not null, default: `CURRENT_TIMESTAMP`, note: 'Set to CURRENT_TIMESTAMP on update by trg_users_updated_at']
+}
+
+Table classes {
+  id int [pk, increment]
+  name varchar(150) [not null]
+  description text
+  status class_status [not null, default: 'UPCOMING']
+  start_date date
+  end_date date
+  mentor_id int [not null]
+  created_at timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at timestamp [not null, default: `CURRENT_TIMESTAMP`, note: 'Set to CURRENT_TIMESTAMP on update by trg_classes_updated_at']
+
+  indexes {
+    mentor_id [name: 'idx_classes_mentor_id']
+  }
+
+  checks {
+    `end_date IS NULL OR start_date IS NULL OR end_date >= start_date` [name: 'chk_classes_dates']
+  }
+}
+
+Table class_members {
+  id int [pk, increment]
+  class_id int [not null]
+  member_id int [not null]
+  joined_at timestamp [not null, default: `CURRENT_TIMESTAMP`]
+
+  indexes {
+    (class_id, member_id) [unique, name: 'uq_class_member']
+    member_id [name: 'idx_class_members_member_id']
+  }
+}
+
+Table lessons {
+  id int [pk, increment]
+  class_id int [not null]
+  title varchar(200) [not null]
+  content text
+  order_index int [not null, default: 1]
+  created_by int [not null]
+  created_at timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at timestamp [not null, default: `CURRENT_TIMESTAMP`, note: 'Set to CURRENT_TIMESTAMP on update by trg_lessons_updated_at']
+
+  indexes {
+    (class_id, order_index) [unique, name: 'uq_lesson_class_order']
+    class_id [name: 'idx_lessons_class_id']
+    created_by [name: 'fk_lessons_creator']
+  }
+}
+
+Table lesson_progress {
+  id int [pk, increment]
+  lesson_id int [not null]
+  member_id int [not null]
+  completed_at timestamp [not null, default: `CURRENT_TIMESTAMP`]
+
+  indexes {
+    (lesson_id, member_id) [unique, name: 'uq_lesson_member_progress']
+    member_id [name: 'idx_lesson_progress_member_id']
+  }
+}
+
+Table assignments {
+  id int [pk, increment]
+  class_id int [not null]
+  title varchar(200) [not null]
+  description text
+  deadline timestamp [default: null]
+  maximum_score numeric(5,2) [not null, default: 10.00]
+  created_at timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  updated_at timestamp [not null, default: `CURRENT_TIMESTAMP`, note: 'Set to CURRENT_TIMESTAMP on update by trg_assignments_updated_at']
+
+  indexes {
+    class_id [name: 'idx_assignments_class_id']
+  }
+
+  checks {
+    `maximum_score > 0` [name: 'chk_assignments_max_score']
+  }
+}
+
+Table submissions {
+  id int [pk, increment]
+  assignment_id int [not null]
+  member_id int [not null]
+  content text
+  repository_url varchar(500) [default: null]
+  submitted_at timestamp [not null, default: `CURRENT_TIMESTAMP`]
+  score numeric(5,2) [default: null]
+  feedback text
+  reviewed_at timestamp [default: null]
+  reviewed_by int [default: null]
+
+  indexes {
+    (assignment_id, member_id) [unique, name: 'uq_assignment_member_submission']
+    member_id [name: 'idx_submissions_member_id']
+    reviewed_by [name: 'fk_submissions_reviewer']
+  }
+
+  checks {
+    `score IS NULL OR score >= 0` [name: 'chk_submissions_score']
+  }
+}
+
+Ref fk_classes_mentor: classes.mentor_id > users.id [delete: restrict]
+Ref fk_cm_class: class_members.class_id > classes.id [delete: cascade]
+Ref fk_cm_member: class_members.member_id > users.id [delete: cascade]
+Ref fk_lessons_class: lessons.class_id > classes.id [delete: cascade]
+Ref fk_lessons_creator: lessons.created_by > users.id [delete: restrict]
+Ref fk_lp_lesson: lesson_progress.lesson_id > lessons.id [delete: cascade]
+Ref fk_lp_member: lesson_progress.member_id > users.id [delete: cascade]
+Ref fk_assignments_class: assignments.class_id > classes.id [delete: cascade]
+Ref fk_submissions_assignment: submissions.assignment_id > assignments.id [delete: cascade]
+Ref fk_submissions_member: submissions.member_id > users.id [delete: cascade]
+Ref fk_submissions_reviewer: submissions.reviewed_by > users.id [delete: set null]
