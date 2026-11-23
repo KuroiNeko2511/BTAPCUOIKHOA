@@ -114,7 +114,7 @@ export const runSeed = async () => {
     console.log("🎉 Hoàn tất quá trình Seed dữ liệu mẫu!");
   } catch (error) {
     await client.query("ROLLBACK");
-    console.error("❌ Lỗi khi chạy Seed:", error.message);
+    console.error("❌ Error while running seed:", error.message);
   } finally {
     client.release();
   }

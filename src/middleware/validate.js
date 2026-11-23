@@ -54,15 +54,15 @@ export const createUserRules = [
 
   body("password")
     .isString()
-    .withMessage("Password phải là chuỗi")
+    .withMessage("Password must be a string")
     .bail()
     .isLength({ min: 6, max: 72 })
-    .withMessage("Password phải từ 6 đến 72 ký tự"),
+    .withMessage("Password must be between 6 and 72 characters"),
 
   body("role")
     .optional()
     .isIn(["ADMIN", "MEMBER"])
-    .withMessage("Role phải là ADMIN hoặc MEMBER"),
+    .withMessage("Role must be ADMIN or MEMBER"),
 ];
 
 export const updateUserRules = [
@@ -97,39 +97,39 @@ export const registerRules = [
   body("name")
     .trim()
     .notEmpty()
-    .withMessage("Tên không được để trống")
+    .withMessage("Name is required")
     .isLength({ min: 2, max: 50 })
-    .withMessage("Tên phải từ 2 đến 50 ký tự"),
+    .withMessage("Name must be between 2 and 50 characters"),
 
   body("email")
     .trim()
     .notEmpty()
-    .withMessage("Email không được để trống")
+    .withMessage("Email is required")
     .isEmail()
-    .withMessage("Email không đúng định dạng")
+    .withMessage("Email must be valid")
     .normalizeEmail(),
 
   body("password")
     .trim()
     .notEmpty()
-    .withMessage("Mật khẩu không được để trống")
+    .withMessage("Password is required")
     .isLength({ min: 6 })
-    .withMessage("Mật khẩu phải có tối thiểu 6 ký tự"),
+    .withMessage("Password must be at least 6 characters"),
 ];
 
 export const loginRules = [
   body("email")
     .trim()
     .notEmpty()
-    .withMessage("Email không được để trống")
+    .withMessage("Email is required")
     .isEmail()
-    .withMessage("Email không đúng định dạng")
+    .withMessage("Email must be valid")
     .normalizeEmail(),
 
   body("password")
     .trim()
     .notEmpty()
-    .withMessage("Mật khẩu không được để trống"),
+    .withMessage("Password is required"),
 ];
 
 export const validateClassDescription = (description) => {

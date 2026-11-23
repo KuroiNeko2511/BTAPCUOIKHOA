@@ -12,15 +12,15 @@ const errorHandler = (err, req, res, next) => {
   // 2. Chuyển đổi lỗi Database PostgreSQL (Unique constraint vi phạm: mã 23505)
   if (err.code === "23505") {
     if (err.table === "users" || err.constraint?.includes("users_email")) {
-      err = new ConflictError("Email hoặc thông tin người dùng đã tồn tại!");
+      err = new ConflictError("A user with this email or these details already exists.");
     } else if (err.table === "classes") {
-      err = new ConflictError("Thông tin lớp học bị trùng lặp!");
+      err = new ConflictError("Class information already exists.");
     } else if (err.table === "class_members" || err.constraint?.includes("class_member")) {
-      err = new ConflictError("Thành viên đã tham gia lớp học này!");
+      err = new ConflictError("This member is already enrolled in this class.");
     } else if (err.table === "lessons" || err.constraint?.includes("lesson_class_order")) {
-      err = new ConflictError("Thứ tự bài học trong lớp đã tồn tại!");
+      err = new ConflictError("This lesson order already exists in the class.");
     } else {
-      err = new ConflictError("Dữ liệu đã tồn tại trong hệ thống!");
+      err = new ConflictError("This data already exists in the system.");
     }
   }
 

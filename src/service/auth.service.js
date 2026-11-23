@@ -12,7 +12,7 @@ export const register = async ({ name, email, password }) => {
   // 1. Kiểm tra xem email đã tồn tại hay chưa
   const existingUser = await userRepository.findByEmail(email);
   if (existingUser) {
-    throw new ConflictError("Email này đã được sử dụng!");
+    throw new ConflictError("This email is already in use.");
   }
 
   // 2. Băm mật khẩu trước khi lưu DB
@@ -35,13 +35,13 @@ export const login = async ({ email, password }) => {
   // 1. Tìm tài khoản theo email
   const user = await userRepository.findByEmail(email);
   if (!user) {
-    throw new UnauthorizedError("Email hoặc mật khẩu không chính xác!");
+    throw new UnauthorizedError("Email or password is incorrect.");
   }
 
   // 2. So sánh mật khẩu đầu vào với chuỗi băm trong DB (dùng user.password_hash)
   const isMatch = await comparePassword(password, user.password_hash);
   if (!isMatch) {
-    throw new UnauthorizedError("Email hoặc mật khẩu không chính xác!");
+    throw new UnauthorizedError("Email or password is incorrect.");
   }
 
   // 3. Tạo Payload chứa các thông tin định danh cần thiết
@@ -69,7 +69,7 @@ export const login = async ({ email, password }) => {
 export const getMe = async (userId) => {
   const user = await userRepository.findById(userId);
   if (!user) {
-    throw new NotFoundError("Người dùng không còn tồn tại trên hệ thống!");
+    throw new NotFoundError("User no longer exists.");
   }
 
   // Loại bỏ password_hash trước khi trả về client

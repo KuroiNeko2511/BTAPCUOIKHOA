@@ -5,7 +5,7 @@ import config from "./env.config.js";
 const { Pool } = pg;
 
 if (!config.db.url) {
-  throw new Error("DATABASE_URL chưa được cấu hình!");
+  throw new Error("DATABASE_URL is not configured.");
 }
 
 // Kết nối đến Neon PostgreSQL

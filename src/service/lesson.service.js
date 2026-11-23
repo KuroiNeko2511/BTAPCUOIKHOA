@@ -34,7 +34,7 @@ export const createLesson = async (data, user) => {
   if (user.role !== "ADMIN") {
     const isMentor = await classRepository.isMentorOfClass(classId, user.id);
     if (!isMentor) {
-      throw new ForbiddenError("Chỉ Mentor của lớp mới được tạo bài học!");
+      throw new ForbiddenError("Only the class mentor can create lessons.");
     }
   }
 
@@ -56,7 +56,7 @@ export const getLessonsByClass = async (classId, user) => {
   if (user.role !== "ADMIN") {
     const hasAccess = await classRepository.isMemberOrMentorOfClass(id, user.id);
     if (!hasAccess) {
-      throw new ForbiddenError("Bạn không thuộc lớp học này!");
+      throw new ForbiddenError("You do not belong to this class.");
     }
   }
 
@@ -75,7 +75,7 @@ export const getLessonById = async (lessonId, user) => {
       user.id
     );
     if (!hasAccess) {
-      throw new ForbiddenError("Bạn không thuộc lớp học này!");
+      throw new ForbiddenError("You do not belong to this class.");
     }
   }
 
@@ -94,7 +94,7 @@ export const updateLesson = async (lessonId, data, user) => {
       user.id
     );
     if (!isMentor) {
-      throw new ForbiddenError("Chỉ Mentor của lớp mới được sửa bài học!");
+      throw new ForbiddenError("Only the class mentor can update lessons.");
     }
   }
 
@@ -122,7 +122,7 @@ export const deleteLesson = async (lessonId, user) => {
       user.id
     );
     if (!isMentor) {
-      throw new ForbiddenError("Chỉ Mentor của lớp mới được xóa bài học!");
+      throw new ForbiddenError("Only the class mentor can delete lessons.");
     }
   }
 
@@ -141,7 +141,7 @@ export const completeLesson = async (lessonId, user) => {
   );
   if (!isMember) {
     throw new ForbiddenError(
-      "Chỉ học viên thuộc lớp học này mới được đánh dấu hoàn thành bài học!"
+      "Only students in this class can mark lessons as complete."
     );
   }
 
@@ -165,7 +165,7 @@ export const getClassProgress = async (classId, user) => {
   if (user.role !== "ADMIN") {
     const hasAccess = await classRepository.isMemberOrMentorOfClass(id, user.id);
     if (!hasAccess) {
-      throw new ForbiddenError("Bạn không thuộc lớp học này!");
+      throw new ForbiddenError("You do not belong to this class.");
     }
   }
 
