@@ -19,22 +19,27 @@
         application/json:
           schema:
             type: object
-            required: [name, mentor_id]
+            required: [name, mentorId]
             properties:
               name:
                 type: string
+                minLength: 2
+                maxLength: 150
                 example: Lớp NodeJS 01
               description:
                 type: string
-              mentor_id:
+                nullable: true
+              mentorId:
                 type: integer
                 example: 2
-              start_date:
+              startDate:
                 type: string
                 format: date
-              end_date:
+                nullable: true
+              endDate:
                 type: string
                 format: date
+                nullable: true
     responses:
       "201":
         description: Tạo lớp thành công
@@ -69,23 +74,34 @@
         schema:
           type: integer
     requestBody:
+      required: true
       content:
         application/json:
           schema:
             type: object
+            minProperties: 1
+            additionalProperties: false
             properties:
               name:
                 type: string
+                minLength: 2
+                maxLength: 150
               description:
                 type: string
-              mentor_id:
+                nullable: true
+              mentorId:
                 type: integer
-              start_date:
+              startDate:
                 type: string
                 format: date
-              end_date:
+                nullable: true
+              endDate:
                 type: string
                 format: date
+                nullable: true
+              status:
+                type: string
+                enum: [UPCOMING, ONGOING, COMPLETED]
     responses:
       "200":
         description: Cập nhật thành công

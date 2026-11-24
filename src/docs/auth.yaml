@@ -2,6 +2,7 @@
   post:
     tags: [Auth]
     summary: Đăng ký tài khoản mới
+    security: []
     requestBody:
       required: true
       content:
@@ -12,12 +13,16 @@
             properties:
               name:
                 type: string
+                minLength: 2
+                maxLength: 50
                 example: Nguyen Van A
               email:
                 type: string
+                format: email
                 example: vanA@example.com
               password:
                 type: string
+                minLength: 6
                 example: "123456"
     responses:
       "201":
@@ -31,6 +36,7 @@
   post:
     tags: [Auth]
     summary: Đăng nhập
+    security: []
     requestBody:
       required: true
       content:
@@ -41,9 +47,11 @@
             properties:
               email:
                 type: string
+                format: email
                 example: vanA@example.com
               password:
                 type: string
+                minLength: 1
                 example: "123456"
     responses:
       "200":

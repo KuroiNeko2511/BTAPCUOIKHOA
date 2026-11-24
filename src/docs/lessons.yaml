@@ -1,4 +1,4 @@
-/lessons/{id}:
+/lessons/{lessonId}:
   get:
     tags: [Lessons]
     summary: Lấy chi tiết bài học
@@ -6,7 +6,7 @@
       - bearerAuth: []
     parameters:
       - in: path
-        name: id
+        name: lessonId
         required: true
         schema:
           type: integer
@@ -18,39 +18,46 @@
 
   patch:
     tags: [Lessons]
-    summary: Cập nhật bài học (Mentor)
+    summary: Cập nhật bài học (Admin hoặc Mentor lớp)
     security:
       - bearerAuth: []
     parameters:
       - in: path
-        name: id
+        name: lessonId
         required: true
         schema:
           type: integer
     requestBody:
+      required: true
       content:
         application/json:
           schema:
             type: object
+            minProperties: 1
             properties:
               title:
                 type: string
+                minLength: 1
+                maxLength: 200
               content:
                 type: string
-              order:
+                nullable: true
+              orderIndex:
                 type: integer
+                minimum: 1
+                maximum: 2147483647
     responses:
       "200":
         description: Cập nhật thành công
 
   delete:
     tags: [Lessons]
-    summary: Xoá bài học (Mentor)
+    summary: Xoá bài học (Admin hoặc Mentor lớp)
     security:
       - bearerAuth: []
     parameters:
       - in: path
-        name: id
+        name: lessonId
         required: true
         schema:
           type: integer
@@ -58,7 +65,7 @@
       "200":
         description: Xoá thành công
 
-/lessons/{id}/complete:
+/lessons/{lessonId}/complete:
   post:
     tags: [Lessons]
     summary: Đánh dấu hoàn thành bài học (Member)
@@ -66,7 +73,7 @@
       - bearerAuth: []
     parameters:
       - in: path
-        name: id
+        name: lessonId
         required: true
         schema:
           type: integer
@@ -77,7 +84,7 @@
 /classes/{classId}/lessons:
   post:
     tags: [Lessons]
-    summary: Tạo bài học trong lớp (Mentor)
+    summary: Tạo bài học trong lớp (Admin hoặc Mentor lớp)
     security:
       - bearerAuth: []
     parameters:
@@ -96,10 +103,15 @@
             properties:
               title:
                 type: string
+                minLength: 1
+                maxLength: 200
               content:
                 type: string
-              order:
+                nullable: true
+              orderIndex:
                 type: integer
+                minimum: 1
+                maximum: 2147483647
     responses:
       "201":
         description: Tạo bài học thành công
@@ -126,7 +138,7 @@
 /classes/{classId}/progress:
   get:
     tags: [Lessons]
-    summary: Lấy tiến độ học của lớp
+    summary: Lấy tiến độ của người dùng hiện tại trong lớp
     security:
       - bearerAuth: []
     parameters:

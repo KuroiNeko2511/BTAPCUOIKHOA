@@ -4,6 +4,21 @@
     summary: Lấy danh sách tất cả người dùng (Admin)
     security:
       - bearerAuth: []
+    parameters:
+      - in: query
+        name: sortBy
+        description: Cột sắp xếp; giá trị không hỗ trợ sẽ dùng id.
+        schema:
+          type: string
+          enum: [id, name, email, role, created_at]
+          default: id
+      - in: query
+        name: order
+        description: Chiều sắp xếp; giá trị không hỗ trợ sẽ dùng asc.
+        schema:
+          type: string
+          enum: [asc, desc]
+          default: asc
     responses:
       "200":
         description: Danh sách user
@@ -25,10 +40,15 @@
             properties:
               name:
                 type: string
+                minLength: 2
+                maxLength: 50
               email:
                 type: string
+                format: email
               password:
                 type: string
+                minLength: 6
+                maxLength: 72
               role:
                 type: string
                 enum: [ADMIN, MEMBER]
@@ -68,15 +88,30 @@
         schema:
           type: integer
     requestBody:
+      required: true
       content:
         application/json:
           schema:
             type: object
+            minProperties: 1
+            description: |
+              Backend hiện yêu cầu có ít nhất một trong name, email hoặc age.
+              password và role có thể gửi kèm với một field đó. age hiện được
+              validator chấp nhận nhưng repository không lưu field này.
+            anyOf:
+              - required: [name]
+              - required: [email]
+              - required: [age]
             properties:
               name:
                 type: string
+                minLength: 2
+                maxLength: 50
               email:
                 type: string
+                format: email
+              age:
+                description: Validator chấp nhận field này; repository hiện không lưu.
               password:
                 type: string
               role:

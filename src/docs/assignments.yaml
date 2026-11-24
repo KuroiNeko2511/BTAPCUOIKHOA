@@ -32,16 +32,26 @@
           schema:
             type: object
             required: [title]
+            additionalProperties: false
             properties:
               title:
                 type: string
+                minLength: 1
+                maxLength: 200
               description:
                 type: string
+                maxLength: 10000
+                nullable: true
               maximumScore:
                 type: number
-              dueDate:
+                minimum: 0.01
+                maximum: 999.99
+                multipleOf: 0.01
+              deadline:
                 type: string
-                format: date-time
+                nullable: true
+                description: Local Vietnam time in YYYY-MM-DDTHH:mm format; ISO 8601 with timezone is also accepted.
+                example: "2026-11-24T19:32"
     responses:
       "201":
         description: Tạo thành công
@@ -76,22 +86,32 @@
         schema:
           type: integer
     requestBody:
+      required: true
       content:
         application/json:
           schema:
             type: object
+            minProperties: 1
+            additionalProperties: false
             properties:
               title:
                 type: string
+                minLength: 1
+                maxLength: 200
               description:
                 type: string
+                maxLength: 10000
+                nullable: true
               maximumScore:
                 type: number
-              dueDate:
+                minimum: 0.01
+                maximum: 999.99
+                multipleOf: 0.01
+              deadline:
                 type: string
-                format: date-time
-              isClosed:
-                type: boolean
+                nullable: true
+                description: Local Vietnam time in YYYY-MM-DDTHH:mm format; ISO 8601 with timezone is also accepted.
+                example: "2026-11-24T19:32"
     responses:
       "200":
         description: Cập nhật thành công
@@ -124,16 +144,42 @@
         schema:
           type: integer
     requestBody:
+      required: true
       content:
         application/json:
           schema:
             type: object
+            anyOf:
+              - required: [content]
+                properties:
+                  content:
+                    type: string
+                    minLength: 1
+              - required: [repositoryUrl]
+                properties:
+                  repositoryUrl:
+                    type: string
+                    minLength: 1
+                    maxLength: 500
+                    format: uri
+                    pattern: '^https?://'
             properties:
               content:
                 type: string
+                minLength: 1
+                maxLength: 10000
+                nullable: true
               repositoryUrl:
                 type: string
+                minLength: 1
+                maxLength: 500
+                format: uri
+                pattern: '^https?://'
+                nullable: true
                 example: https://github.com/user/repo
+            description: |
+              Phải có ít nhất một field không rỗng. Nếu gửi cả hai, từng field
+              có thể là null hoặc chuỗi không rỗng; URL phải dùng HTTP hoặc HTTPS.
     responses:
       "201":
         description: Nộp bài thành công
@@ -186,15 +232,24 @@
         schema:
           type: integer
     requestBody:
+      required: true
       content:
         application/json:
           schema:
             type: object
+            required: [score]
+            minProperties: 1
+            additionalProperties: false
             properties:
               score:
                 type: number
+                minimum: 0
+                multipleOf: 0.01
+                description: Phải không lớn hơn maximumScore của bài tập.
               feedback:
                 type: string
+                maxLength: 10000
+                nullable: true
     responses:
       "200":
         description: Chấm điểm thành công

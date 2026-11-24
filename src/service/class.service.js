@@ -24,6 +24,33 @@ const assertValidDateRange = (startDate, endDate) => {
     throw new BadRequestError("endDate must be on or after startDate.");
   }
 };
+
+const validateClassDescription = (description) => {
+  if (description === undefined || description === null) {
+    return description;
+  }
+
+  if (typeof description !== "string") {
+    throw new BadRequestError("description must be a string or null.");
+  }
+
+  return description.trim();
+};
+
+const validateClassStatus = (status) => {
+  if (status === undefined) {
+    return status;
+  }
+
+  if (!["UPCOMING", "ONGOING", "COMPLETED"].includes(status)) {
+    throw new BadRequestError(
+      "status must be UPCOMING, ONGOING, or COMPLETED.",
+    );
+  }
+
+  return status;
+};
+
 //kiểm tra mentor tồn tại và đang hoạt động
 const assertActiveMentor = async (mentorId) => {
   const mentor = await userRepository.findById(mentorId);

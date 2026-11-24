@@ -114,6 +114,7 @@ const decimal = (value, field, min, max) => {
 
 const ISO_8601 =
   /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})$/;
+const LOCAL_DATETIME = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/;
 
 const deadline = (value) => {
   if (value === null) return null;
@@ -121,15 +122,18 @@ const deadline = (value) => {
   if (typeof value !== "string") {
     throw new BadRequestError("deadline must be a string or null.");
   }
-  const match = ISO_8601.exec(value);
+
+  const localMatch = LOCAL_DATETIME.exec(value);
+  const match = localMatch || ISO_8601.exec(value);
   if (!match) {
     throw new BadRequestError(
-      "check deadline time format",
+      "deadline must use YYYY-MM-DDTHH:mm local time or an ISO 8601 datetime with timezone.",
     );
   }
-  const [year, month, day, hour, minute, second] = match
+  const [year, month, day, hour, minute, parsedSecond] = match
     .slice(1, 7)
     .map(Number);
+  const second = parsedSecond ?? 0;
 
   const check = new Date(Date.UTC(year, month - 1, day, hour, minute, second));
 
@@ -143,6 +147,13 @@ const deadline = (value) => {
     check.getUTCSeconds() !== second
   ) {
     throw new BadRequestError("deadline is not a valid date and time.");
+  }
+
+  if (localMatch) {
+    // Interpret datetime-local values as Vietnam time (UTC+07:00).
+    return new Date(
+      Date.UTC(year, month - 1, day, hour - 7, minute),
+    ).toISOString();
   }
 
   const date = new Date(value);

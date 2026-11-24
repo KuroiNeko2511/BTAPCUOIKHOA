@@ -67,13 +67,13 @@ export const createUserRules = [
 
 export const updateUserRules = [
   body().custom((value, { req }) => {
-    const allowedFields = ["name", "email", "age"];
+    const allowedFields = ["name", "email", "age", "password", "role"];
     const hasAllowedField = Object.keys(req.body).some((key) =>
       allowedFields.includes(key),
     );
     if (!hasAllowedField) {
       throw new Error(
-        "At least one field (name, email, age) must be provided for update",
+        "At least one field (name, email, age, password, role) must be provided for update",
       );
     }
     return true;
@@ -91,6 +91,19 @@ export const updateUserRules = [
     .isEmail()
     .withMessage("Email must be valid")
     .normalizeEmail(),
+
+  body("password")
+    .optional()
+    .isString()
+    .withMessage("Password must be a string")
+    .bail()
+    .isLength({ min: 6, max: 72 })
+    .withMessage("Password must be between 6 and 72 characters"),
+
+  body("role")
+    .optional()
+    .isIn(["ADMIN", "MEMBER"])
+    .withMessage("Role must be ADMIN or MEMBER"),
 ];
 
 export const registerRules = [
@@ -138,9 +151,7 @@ export const validateClassDescription = (description) => {
   }
 
   if (typeof description !== "string") {
-    throw new BadRequestError(
-      "description must be a string or null.",
-    );
+    throw new BadRequestError("description must be a string or null.");
   }
 
   return description.trim();
@@ -179,7 +190,10 @@ export const createClassRules = [
     .isISO8601()
     .withMessage("endDate must be a valid date (YYYY-MM-DD)")
     .custom((endDate, { req }) => {
-      if (req.body.startDate && new Date(endDate) < new Date(req.body.startDate)) {
+      if (
+        req.body.startDate &&
+        new Date(endDate) < new Date(req.body.startDate)
+      ) {
         throw new Error("endDate must be greater than or equal to startDate");
       }
       return true;
@@ -288,8 +302,8 @@ export const createAssignmentRules = [
 
   body("deadline")
     .optional({ nullable: true })
-    .isISO8601()
-    .withMessage("Deadline must be a valid ISO 8601 datetime"),
+    .isString()
+    .withMessage("Deadline must be a date-time string"),
 
   body("maximumScore")
     .optional()
@@ -313,8 +327,8 @@ export const updateAssignmentRules = [
 
   body("deadline")
     .optional({ nullable: true })
-    .isISO8601()
-    .withMessage("Deadline must be a valid ISO 8601 datetime"),
+    .isString()
+    .withMessage("Deadline must be a date-time string"),
 
   body("maximumScore")
     .optional()
@@ -324,8 +338,11 @@ export const updateAssignmentRules = [
 
 export const submitAssignmentRules = [
   body().custom((value, { req }) => {
-    const hasContent = req.body.content && String(req.body.content).trim().length > 0;
-    const hasRepoUrl = req.body.repositoryUrl && String(req.body.repositoryUrl).trim().length > 0;
+    const hasContent =
+      req.body.content && String(req.body.content).trim().length > 0;
+    const hasRepoUrl =
+      req.body.repositoryUrl &&
+      String(req.body.repositoryUrl).trim().length > 0;
     if (!hasContent && !hasRepoUrl) {
       throw new Error("Either content or repositoryUrl must be provided");
     }
