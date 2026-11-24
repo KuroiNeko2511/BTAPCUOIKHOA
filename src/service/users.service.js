@@ -72,7 +72,7 @@ export const updateUser = async (userId, updateData) => {
   }
 
   // dataToUpdate đã có sẵn is_active (nếu client gửi lên)
-  const updatedUser = await userRepository.update(id, dataToUpdate);
+  const updatedUser = await userRepository.update(userId, dataToUpdate);
   if (!updatedUser) {
     throw new NotFoundError("User not found or update failed");
   }
@@ -88,5 +88,5 @@ export const deleteUser = async (userId) => {
     throw new NotFoundError("User not found");
   }
 
-  return await userRepository.deleteById(id);
+  return await userRepository.deleteById(userId);
 };
